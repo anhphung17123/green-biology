@@ -1,0 +1,19 @@
+{
+  "name": "green-biology",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "dotenv -e .env -- concurrently -n web,api -c green,cyan \"npm run dev -w @green-biology/web\" \"npm run start:dev -w @green-biology/api\"",
+    "build": "npm run build -w @green-biology/web && npm run build -w @green-biology/api",
+    "test": "npm run test -w @green-biology/api",
+    "test:e2e": "npm run test:e2e -w @green-biology/web",
+    "db:generate": "dotenv -e .env -- npm run prisma:generate -w @green-biology/api",
+    "db:migrate": "dotenv -e .env -- npm run prisma:migrate -w @green-biology/api --",
+    "db:seed": "dotenv -e .env -- npm run prisma:seed -w @green-biology/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv-cli": "^8.0.0"
+  }
+}
