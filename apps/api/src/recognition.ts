@@ -1,44 +1,20 @@
-import {
-  BadGatewayException, BadRequestException, Controller, Get, HttpException, Post,
-  ServiceUnavailableException, UploadedFile, UseGuards, UseInterceptors,
-} from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Controller, Get, HttpException, HttpStatus, Post, ServiceUnavailableException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { randomUUID } from 'node:crypto';
-import { extname } from 'node:path';
-import { readFile, unlink } from 'node:fs/promises';
-import OpenAI from 'openai';
+import { memoryStorage } from 'multer';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtGuard, Roles, RolesGuard } from './auth';
-import { mapOpenAIError } from './chat';
 
 const imageMimes = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type SupportedImageMime = (typeof imageMimes)[number];
 type Certainty = 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+type Taxonomy = { class?: string; order?: string; family?: string; genus?: string; species?: string };
+type Annotation = { label?: string; score?: number; taxonomy?: Taxonomy; bbox?: number[] };
+type AnimalDetectResponse = { annotations?: Annotation[]; info?: { model_id?: string; model_version?: string }; warning?: string };
 
 export type SpeciesPrediction = {
-  identifiable: boolean;
-  commonName: string | null;
-  scientificName: string | null;
-  organismGroup: string | null;
-  identifyingFeatures: string[];
-  habitat: string | null;
-  certainty: Certainty;
-  certaintyReason: string;
-  limitations: string;
-};
-
-const resultSchema = {
-  type: 'object', additionalProperties: false,
-  properties: {
-    identifiable: { type: 'boolean' }, commonName: { type: ['string', 'null'] },
-    scientificName: { type: ['string', 'null'] }, organismGroup: { type: ['string', 'null'] },
-    identifyingFeatures: { type: 'array', items: { type: 'string' }, maxItems: 6 },
-    habitat: { type: ['string', 'null'] },
-    certainty: { type: 'string', enum: ['HIGH', 'MEDIUM', 'LOW', 'UNKNOWN'] },
-    certaintyReason: { type: 'string' }, limitations: { type: 'string' },
-  },
-  required: ['identifiable', 'commonName', 'scientificName', 'organismGroup', 'identifyingFeatures', 'habitat', 'certainty', 'certaintyReason', 'limitations'],
+  identifiable: boolean; commonName: string | null; scientificName: string | null;
+  organismGroup: string | null; identifyingFeatures: string[]; habitat: string | null;
+  certainty: Certainty; certaintyReason: string; limitations: string;
 };
 
 export function detectImageMime(bytes: Buffer): SupportedImageMime | null {
@@ -48,23 +24,38 @@ export function detectImageMime(bytes: Buffer): SupportedImageMime | null {
   return null;
 }
 
-export function parseSpeciesPrediction(raw: string): SpeciesPrediction {
-  let value: unknown;
-  try { value = JSON.parse(raw); } catch { throw new BadGatewayException('OpenAI trả về kết quả nhận diện không hợp lệ.'); }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadGatewayException('OpenAI trả về kết quả nhận diện không hợp lệ.');
-  const item = value as Record<string, unknown>;
-  const certaintyValues: Certainty[] = ['HIGH', 'MEDIUM', 'LOW', 'UNKNOWN'];
-  const nullableString = (field: string) => item[field] === null || typeof item[field] === 'string';
-  if (typeof item.identifiable !== 'boolean' || !nullableString('commonName') || !nullableString('scientificName') ||
-    !nullableString('organismGroup') || !nullableString('habitat') || !Array.isArray(item.identifyingFeatures) ||
-    !item.identifyingFeatures.every((feature) => typeof feature === 'string') || !certaintyValues.includes(item.certainty as Certainty) ||
-    typeof item.certaintyReason !== 'string' || typeof item.limitations !== 'string') {
-    throw new BadGatewayException('OpenAI trả về kết quả nhận diện không hợp lệ.');
-  }
-  const prediction = item as SpeciesPrediction;
-  if (!prediction.identifiable) return { ...prediction, commonName: null, scientificName: null, certainty: 'UNKNOWN' };
-  if (!prediction.commonName && !prediction.scientificName) throw new BadGatewayException('OpenAI không trả về tên dự đoán hợp lệ.');
-  return prediction;
+export function animalDetectPrediction(payload: AnimalDetectResponse): SpeciesPrediction {
+  if (!Array.isArray(payload.annotations)) throw new BadGatewayException('Animal Detect trả về kết quả không hợp lệ.');
+  const annotation = [...payload.annotations].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+  if (!annotation) return {
+    identifiable: false, commonName: null, scientificName: null, organismGroup: null, identifyingFeatures: [], habitat: null,
+    certainty: 'UNKNOWN', certaintyReason: 'Không phát hiện động vật vượt ngưỡng tin cậy.',
+    limitations: 'Animal Detect phù hợp nhất với ảnh bẫy camera động vật hoang dã; hãy thử ảnh rõ hơn nếu có động vật trong ảnh.',
+  };
+  if (typeof annotation.label !== 'string' || typeof annotation.score !== 'number' || !annotation.taxonomy) throw new BadGatewayException('Animal Detect trả về kết quả không hợp lệ.');
+  const score = Math.max(0, Math.min(1, annotation.score));
+  const taxonomy = annotation.taxonomy;
+  const certainty: Certainty = score >= 0.85 ? 'HIGH' : score >= 0.6 ? 'MEDIUM' : 'LOW';
+  const hierarchy = [taxonomy.order, taxonomy.family, taxonomy.genus].filter(Boolean).join(' › ');
+  return {
+    identifiable: true,
+    commonName: annotation.label.trim(),
+    scientificName: taxonomy.species?.trim() || null,
+    organismGroup: taxonomy.class?.trim() || null,
+    identifyingFeatures: hierarchy ? [`Phân loại: ${hierarchy}`] : [],
+    habitat: null,
+    certainty,
+    certaintyReason: `Điểm tin cậy từ Animal Detect: ${(score * 100).toFixed(1)}%.`,
+    limitations: 'Kết quả máy học từ ảnh, không thay thế xác nhận của chuyên gia; dịch vụ chủ yếu được huấn luyện cho ảnh bẫy camera động vật hoang dã.',
+  };
+}
+
+function mapAnimalDetectError(status: number): HttpException {
+  if (status === 401 || status === 403) return new ServiceUnavailableException('Animal Detect chưa được xác thực. Hãy kiểm tra ANIMAL_DETECT_API_KEY.');
+  if (status === 402 || status === 429) return new HttpException('Animal Detect đã hết quota hoặc đang giới hạn tần suất.', HttpStatus.TOO_MANY_REQUESTS);
+  if (status === 413) return new BadRequestException('Ảnh vượt quá giới hạn của Animal Detect.');
+  if (status >= 500) return new BadGatewayException('Animal Detect đang tạm thời không khả dụng.');
+  return new BadGatewayException('Animal Detect không thể xử lý ảnh này.');
 }
 
 @Controller('species-recognition')
@@ -80,67 +71,45 @@ export class RecognitionController {
 
   @Post()
   @UseInterceptors(FileInterceptor('image', {
-    storage: diskStorage({
-      destination: process.env.UPLOAD_DIR || './uploads',
-      filename: (_, file, callback) => callback(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`),
-    }),
+    storage: memoryStorage(),
     limits: { fileSize: Number(process.env.MAX_UPLOAD_BYTES || 5242880), files: 1 },
-    fileFilter: (_, file, callback) => imageMimes.includes(file.mimetype as SupportedImageMime)
-      ? callback(null, true) : callback(new BadRequestException('Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP'), false),
+    fileFilter: (_, file, callback) => imageMimes.includes(file.mimetype as SupportedImageMime) ? callback(null, true) : callback(new BadRequestException('Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP'), false),
   }))
   async identify(@CurrentUser() user: { sub: string }, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Thiếu ảnh cần nhận diện');
-    const bytes = await readFile(file.path);
+    const bytes = file.buffer;
     const detectedMime = detectImageMime(bytes);
     if (!detectedMime || detectedMime !== file.mimetype) {
-      await unlink(file.path).catch(() => undefined);
       throw new BadRequestException('Nội dung tệp không khớp định dạng ảnh JPEG, PNG hoặc WebP');
     }
-
-    const model = process.env.OPENAI_VISION_MODEL?.trim() || process.env.OPENAI_MODEL?.trim();
-    const pending = await this.db.speciesIdentification.create({
-      data: { userId: user.sub, storageKey: file.filename, status: 'PROCESSING', provider: model ? `OpenAI ${model}` : 'OpenAI' },
-    });
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey || !model) {
-      const message = !apiKey
-        ? 'OpenAI Vision chưa được cấu hình. Quản trị viên cần thiết lập OPENAI_API_KEY.'
-        : 'OpenAI Vision chưa được cấu hình. Quản trị viên cần thiết lập OPENAI_VISION_MODEL.';
+    const pending = await this.db.speciesIdentification.create({ data: { userId: user.sub, storageKey: 'not-stored', status: 'PROCESSING', provider: 'Animal Detect' } });
+    const apiKey = process.env.ANIMAL_DETECT_API_KEY?.trim();
+    if (!apiKey) {
+      const message = 'Animal Detect chưa được cấu hình. Quản trị viên cần thiết lập ANIMAL_DETECT_API_KEY.';
       await this.db.speciesIdentification.update({ where: { id: pending.id }, data: { status: 'FAILED', error: message } });
       throw new ServiceUnavailableException(message);
     }
-
     try {
-      const client = new OpenAI({ apiKey, timeout: Number(process.env.OPENAI_TIMEOUT_MS || 30000), maxRetries: 1 });
-      const response = await client.responses.create({
-        model,
-        instructions: [
-          'Bạn là trợ lý nhận diện thực vật và động vật cho học sinh THPT.',
-          'Chỉ dựa trên chi tiết thực sự nhìn thấy trong ảnh. Không suy đoán tình trạng bảo tồn.',
-          'Chỉ nêu tên loài khi ảnh có đủ đặc điểm phân biệt; nếu chỉ xác định được nhóm, ảnh mờ, bị che khuất hoặc không phải sinh vật thì identifiable=false và để cả hai tên là null.',
-          'Môi trường sống phải là mô tả chung của loài dự đoán và cần nói rõ giới hạn nếu vị trí chụp không thể suy ra từ ảnh.',
-          'Mức chắc chắn là tự đánh giá định tính, không phải xác suất khoa học.',
-          'Trả lời bằng tiếng Việt, ngắn gọn và không bịa thông tin.',
-        ].join(' '),
-        input: [{ role: 'user', content: [
-          { type: 'input_text', text: 'Phân tích ảnh này để nhận diện sơ bộ thực vật hoặc động vật.' },
-          { type: 'input_image', image_url: `data:${detectedMime};base64,${bytes.toString('base64')}`, detail: 'high' },
-        ] }],
-        text: { format: { type: 'json_schema', name: 'species_identification', strict: true, schema: resultSchema }, verbosity: 'low' },
-        max_output_tokens: 700,
+      const form = new FormData();
+      form.append('image', new Blob([new Uint8Array(bytes)], { type: detectedMime }), file.originalname);
+      form.append('classify', 'true');
+      form.append('threshold', process.env.ANIMAL_DETECT_THRESHOLD?.trim() || '0.2');
+      form.append('top_candidate', '2');
+      const country = process.env.ANIMAL_DETECT_COUNTRY?.trim();
+      if (country) form.append('country', country);
+      const response = await fetch('https://api.animaldetect.com/v1/detect', {
+        method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'User-Agent': 'GreenBiology/1.0' }, body: form,
+        signal: AbortSignal.timeout(Number(process.env.ANIMAL_DETECT_TIMEOUT_MS || 30000)),
       });
-      if (!response.output_text?.trim()) throw new BadGatewayException('OpenAI không trả về kết quả nhận diện.');
-      const prediction = parseSpeciesPrediction(response.output_text);
-      const species = prediction.scientificName ? await this.db.species.findFirst({
-        where: { scientificName: { equals: prediction.scientificName, mode: 'insensitive' } }, include: { source: true },
-      }) : null;
-      const updated = await this.db.speciesIdentification.update({
-        where: { id: pending.id },
-        data: { status: 'COMPLETED', predictionName: prediction.scientificName || prediction.commonName, confidence: null, speciesId: species?.id, error: null },
-      });
-      return { identification: updated, prediction, warning: 'Kết quả OpenAI Vision chỉ là nhận diện sơ bộ, không phải kết luận khoa học.', species };
+      const payload = await response.json().catch(() => ({})) as AnimalDetectResponse;
+      if (!response.ok) throw mapAnimalDetectError(response.status);
+      const prediction = animalDetectPrediction(payload);
+      const bestScore = payload.annotations?.length ? Math.max(...payload.annotations.map((item) => item.score || 0)) : null;
+      const species = prediction.scientificName ? await this.db.species.findFirst({ where: { scientificName: { equals: prediction.scientificName, mode: 'insensitive' } }, include: { source: true } }) : null;
+      const updated = await this.db.speciesIdentification.update({ where: { id: pending.id }, data: { status: 'COMPLETED', predictionName: prediction.scientificName || prediction.commonName, confidence: bestScore, speciesId: species?.id, error: null } });
+      return { identification: updated, prediction, warning: 'Kết quả Animal Detect chỉ là nhận diện sơ bộ, không phải kết luận khoa học.', species };
     } catch (error) {
-      const mapped = error instanceof HttpException ? error : mapOpenAIError(error, 'Nhận diện loài');
+      const mapped = error instanceof HttpException ? error : (error as { name?: string }).name === 'TimeoutError' ? new BadGatewayException('Animal Detect phản hồi quá thời gian cho phép.') : new BadGatewayException('Không thể kết nối Animal Detect.');
       await this.db.speciesIdentification.update({ where: { id: pending.id }, data: { status: 'FAILED', error: mapped.message } });
       throw mapped;
     }

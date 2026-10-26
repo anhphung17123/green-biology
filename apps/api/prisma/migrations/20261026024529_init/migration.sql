@@ -285,7 +285,6 @@ CREATE TABLE "DocumentChunk" (
     "documentId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "position" INTEGER NOT NULL,
-    "embedding" JSONB,
 
     CONSTRAINT "DocumentChunk_pkey" PRIMARY KEY ("id")
 );

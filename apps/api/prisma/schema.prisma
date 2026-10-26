@@ -319,8 +319,6 @@ model DocumentChunk {
   document   EducationalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   content    String
   position   Int
-  embedding  Json?
-
   @@unique([documentId, position])
 }
 

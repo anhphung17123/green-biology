@@ -26,21 +26,23 @@ Chạy từng dòng lệnh riêng. Những dòng bắt đầu bằng `#` là ch�
 
 ## AI
 
-Chatbot sử dụng OpenAI Responses API. Thêm khóa chỉ vào `.env` phía backend:
+Chatbot sử dụng Gemini API; nhận diện ảnh động vật sử dụng Animal Detect. Thêm khóa chỉ vào `.env` phía backend:
 
 ```bash
-OPENAI_API_KEY="sk-..."
-OPENAI_MODEL="gpt-6-luna"
-OPENAI_VISION_MODEL="gpt-6-luna"
-OPENAI_EMBED_MODEL="text-embedding-3-small"
-OPENAI_TIMEOUT_MS=30000
+GEMINI_API_KEY="..."
+GEMINI_MODEL="gemini-3.5-flash"
+GEMINI_TIMEOUT_MS=60000
+ANIMAL_DETECT_API_KEY="..."
+ANIMAL_DETECT_COUNTRY="VNM"
+ANIMAL_DETECT_THRESHOLD=0.2
+ANIMAL_DETECT_TIMEOUT_MS=30000
 ```
 
-Không đặt khóa trong biến `VITE_*`. Model mặc định ưu tiên chi phí thấp; quyền truy cập, hạn mức và ưu đãi miễn phí phụ thuộc project OpenAI của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi OpenAI.
+Không đặt khóa trong biến `VITE_*`. Quyền truy cập và hạn mức phụ thuộc project Gemini và tài khoản Animal Detect của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi Gemini.
 
-Nhận diện thực vật/động vật cũng sử dụng OpenAI Responses API với ảnh đầu vào. API kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Model trả kết quả theo JSON schema bắt buộc; khi không đủ dấu hiệu phân biệt, giao diện hiển thị rõ là chưa thể xác định thay vì đoán tên loài. `OPENAI_VISION_MODEL` có thể cấu hình riêng và mặc định dùng cùng model tiết kiệm với chatbot.
+Nhận diện động vật xử lý ảnh tạm thời trong RAM và gửi bằng multipart tới Animal Detect; ảnh không được ghi vào thư mục upload hoặc database. API kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Kết quả gồm nhãn, taxonomy và điểm tin cậy; khi không phát hiện động vật vượt ngưỡng, giao diện hiển thị rõ là chưa thể xác định. Có thể cấu hình gợi ý quốc gia và ngưỡng bằng `ANIMAL_DETECT_COUNTRY` và `ANIMAL_DETECT_THRESHOLD`.
 
-Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất, chia đoạn và tạo embedding bằng OpenAI `text-embedding-3-small`. Nếu OpenAI không được cấu hình hoặc xử lý embedding thất bại, tài liệu chuyển sang `FAILED` kèm thông báo thay vì được đánh dấu sẵn sàng với dữ liệu thiếu. Chatbot không phụ thuộc vào kho tài liệu. Nhận diện ảnh lưu lịch sử và đối chiếu tên khoa học dự đoán với bảng `Species`.
+Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất và chia đoạn văn bản để quản lý nội dung, không tạo embedding. Chatbot không phụ thuộc vào kho tài liệu. Nhận diện ảnh lưu lịch sử và đối chiếu tên khoa học dự đoán với bảng `Species`.
 
 ## Dữ liệu và an toàn
 
@@ -52,7 +54,7 @@ Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất,
 
 ## Trạng thái chức năng
 
-Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker xử lý tài liệu bằng OpenAI Embeddings; chatbot OpenAI có kiểm tra phạm vi backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện loài bằng OpenAI Vision; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu OpenAI chưa được cấu hình hoặc tạm thời không khả dụng.
+Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker trích xuất/chia đoạn tài liệu; chatbot Gemini có kiểm tra phạm vi Sinh học ở backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện động vật bằng Animal Detect; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu dịch vụ AI chưa được cấu hình hoặc tạm thời không khả dụng.
 
 ## Kiểm tra
 

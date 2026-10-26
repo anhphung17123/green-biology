@@ -1,17 +1,5 @@
 import { BadGatewayException } from '@nestjs/common';
-import { detectImageMime, parseSpeciesPrediction } from './recognition';
-
-const uncertain = JSON.stringify({
-  identifiable: false,
-  commonName: 'Tên không được giữ lại',
-  scientificName: 'Species fabricated',
-  organismGroup: 'Thực vật',
-  identifyingFeatures: ['Ảnh quá mờ'],
-  habitat: null,
-  certainty: 'LOW',
-  certaintyReason: 'Không thấy đặc điểm phân biệt',
-  limitations: 'Cần ảnh rõ hơn',
-});
+import { animalDetectPrediction, detectImageMime } from './recognition';
 
 describe('species recognition image validation', () => {
   it('detects JPEG, PNG and WebP by magic bytes', () => {
@@ -25,24 +13,21 @@ describe('species recognition image validation', () => {
   });
 });
 
-describe('species recognition structured output', () => {
-  it('removes invented names when the image is not identifiable', () => {
-    expect(parseSpeciesPrediction(uncertain)).toMatchObject({
-      identifiable: false, commonName: null, scientificName: null, certainty: 'UNKNOWN',
-    });
+describe('Animal Detect response mapping', () => {
+  it('returns unknown when no animal is detected', () => {
+    expect(animalDetectPrediction({ annotations: [] })).toMatchObject({ identifiable: false, commonName: null, certainty: 'UNKNOWN' });
   });
 
-  it('accepts a complete identifiable result', () => {
-    const result = parseSpeciesPrediction(JSON.stringify({
-      identifiable: true, commonName: 'Voọc chà vá chân nâu', scientificName: 'Pygathrix nemaeus',
-      organismGroup: 'Thú', identifyingFeatures: ['Cẳng chân nâu đỏ'], habitat: 'Rừng thường xanh',
-      certainty: 'MEDIUM', certaintyReason: 'Có một đặc điểm nổi bật', limitations: 'Không thấy toàn bộ cơ thể',
-    }));
-    expect(result.scientificName).toBe('Pygathrix nemaeus');
+  it('uses the highest-scoring animal and maps taxonomy', () => {
+    const result = animalDetectPrediction({ annotations: [
+      { label: 'fox', score: 0.55, taxonomy: { class: 'mammalia' } },
+      { label: 'red fox', score: 0.91, taxonomy: { class: 'mammalia', family: 'canidae', genus: 'vulpes', species: 'Vulpes vulpes' } },
+    ] });
+    expect(result).toMatchObject({ commonName: 'red fox', scientificName: 'Vulpes vulpes', certainty: 'HIGH' });
   });
 
-  it('rejects malformed or incomplete model output', () => {
-    expect(() => parseSpeciesPrediction('{bad json')).toThrow(BadGatewayException);
-    expect(() => parseSpeciesPrediction(JSON.stringify({ identifiable: true }))).toThrow(BadGatewayException);
+  it('rejects malformed provider output', () => {
+    expect(() => animalDetectPrediction({})).toThrow(BadGatewayException);
+    expect(() => animalDetectPrediction({ annotations: [{ label: 'fox' }] })).toThrow(BadGatewayException);
   });
 });

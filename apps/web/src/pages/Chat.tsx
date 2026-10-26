@@ -45,7 +45,7 @@ export default function Chat() {
       {error && (
         <div className="notice">
           <CircleAlert />
-          {error} Trợ lý không tạo câu trả lời giả khi dịch vụ OpenAI chưa sẵn sàng.
+          {error} Trợ lý không tạo câu trả lời giả khi dịch vụ Gemini chưa sẵn sàng.
         </div>
       )}
 
