@@ -1,5 +1,10 @@
 import { FormEvent, useState } from 'react';
 import { Bot, CircleAlert, Send } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 import { api } from '../api';
 
 type Reply = {
@@ -7,6 +12,12 @@ type Reply = {
   sources: { title: string; url?: string }[];
   warning?: string;
 };
+
+function normalizeModelMarkdown(markdown: string) {
+  return markdown
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\n$$\n${expression.trim()}\n$$\n`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expression: string) => `$${expression.trim()}$`);
+}
 
 export default function Chat() {
   const [question, setQuestion] = useState('');
@@ -45,7 +56,7 @@ export default function Chat() {
       {error && (
         <div className="notice">
           <CircleAlert />
-          {error} Trợ lý không tạo câu trả lời giả khi dịch vụ Gemini chưa sẵn sàng.
+          {error} Trợ lý không tạo câu trả lời giả khi River AI chưa sẵn sàng.
         </div>
       )}
 
@@ -53,7 +64,17 @@ export default function Chat() {
         <div className="reply">
           <Bot />
           <div>
-            <p>{reply.answer}</p>
+            <div className="markdown-answer">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                components={{
+                  a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+                }}
+              >
+                {normalizeModelMarkdown(reply.answer)}
+              </ReactMarkdown>
+            </div>
             {reply.sources.length > 0 && (
               <small>Nguồn: {reply.sources.map((source) => source.title).join(', ')}</small>
             )}

@@ -26,21 +26,19 @@ Chạy từng dòng lệnh riêng. Những dòng bắt đầu bằng `#` là ch�
 
 ## AI
 
-Chatbot sử dụng Gemini API; nhận diện ảnh động vật sử dụng Animal Detect. Thêm khóa chỉ vào `.env` phía backend:
+Chatbot và nhận diện ảnh động vật đều sử dụng River AI qua API tương thích OpenAI. Thêm khóa chỉ vào `.env` phía backend:
 
 ```bash
-GEMINI_API_KEY="..."
-GEMINI_MODEL="gemini-3.5-flash"
-GEMINI_TIMEOUT_MS=60000
-ANIMAL_DETECT_API_KEY="..."
-ANIMAL_DETECT_COUNTRY="VNM"
-ANIMAL_DETECT_THRESHOLD=0.2
-ANIMAL_DETECT_TIMEOUT_MS=30000
+RIVER_API_KEY="..."
+RIVER_BASE_URL="https://api.river.ai/v1"
+RIVER_TIMEOUT_MS=60000
 ```
 
-Không đặt khóa trong biến `VITE_*`. Quyền truy cập và hạn mức phụ thuộc project Gemini và tài khoản Animal Detect của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi Gemini.
+Không đặt khóa trong biến `VITE_*`. Quyền truy cập model và hạn mức phụ thuộc tài khoản River của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi River AI.
 
-Nhận diện động vật xử lý ảnh tạm thời trong RAM và gửi bằng multipart tới Animal Detect; ảnh không được ghi vào thư mục upload hoặc database. API kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Kết quả gồm nhãn, taxonomy và điểm tin cậy; khi không phát hiện động vật vượt ngưỡng, giao diện hiển thị rõ là chưa thể xác định. Có thể cấu hình gợi ý quốc gia và ngưỡng bằng `ANIMAL_DETECT_COUNTRY` và `ANIMAL_DETECT_THRESHOLD`.
+Website gọi `POST /api/biology-chat/ask` và `POST /api/species-recognition`; các alias `POST /api/chat-biology` và `POST /api/classify-animal` cũng có sẵn. Ảnh được kiểm tra MIME/chữ ký, giới hạn bởi `MAX_UPLOAD_BYTES`, chuyển thành data URL trong RAM để gửi đến model thị giác và không được ghi xuống đĩa. Backend chấp nhận `RIVER_BASE_URL` có hoặc không có hậu tố `/v1` và tự tạo đúng đường dẫn `/v1/chat/completions`.
+
+Nhận diện động vật xử lý ảnh tạm thời trong RAM và gửi tới model thị giác River AI; ảnh không được ghi vào thư mục upload hoặc database. Route của website kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Vì model không trả về độ tin cậy đã hiệu chuẩn, giao diện không hiển thị phần trăm tin cậy giả.
 
 Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất và chia đoạn văn bản để quản lý nội dung, không tạo embedding. Chatbot không phụ thuộc vào kho tài liệu. Nhận diện ảnh lưu lịch sử và đối chiếu tên khoa học dự đoán với bảng `Species`.
 
@@ -54,7 +52,7 @@ Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất 
 
 ## Trạng thái chức năng
 
-Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker trích xuất/chia đoạn tài liệu; chatbot Gemini có kiểm tra phạm vi Sinh học ở backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện động vật bằng Animal Detect; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu dịch vụ AI chưa được cấu hình hoặc tạm thời không khả dụng.
+Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker trích xuất/chia đoạn tài liệu; chatbot River AI có kiểm tra phạm vi Sinh học ở backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện động vật bằng model thị giác River AI; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu dịch vụ AI chưa được cấu hình hoặc tạm thời không khả dụng.
 
 ## Kiểm tra
 

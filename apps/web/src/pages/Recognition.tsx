@@ -55,7 +55,7 @@ export default function Recognition() {
   }
 
   return <div className="page recognition">
-    <span className="kicker">ANIMAL DETECT</span>
+    <span className="kicker">RIVER AI VISION</span>
     <h1>Nhận diện động vật</h1>
     <p>Tải ảnh rõ nét của động vật. Kết quả chỉ là dự đoán sơ bộ và được đối chiếu với cơ sở dữ liệu loài của hệ thống.</p>
     <form className="upload-box" onSubmit={submit}>
@@ -65,7 +65,7 @@ export default function Recognition() {
       <small>JPEG, PNG hoặc WebP · tối đa 5 MB</small>
       <button className="btn primary" disabled={!file || busy}>{busy ? 'Đang phân tích…' : 'Nhận diện'}</button>
     </form>
-    {error && <div className="notice">{error} Ứng dụng không tạo kết quả giả khi Animal Detect không khả dụng.</div>}
+    {error && <div className="notice">{error} Ứng dụng không tạo kết quả giả khi River AI không khả dụng.</div>}
     {result && <div className="prediction">
       <h2>{result.prediction.commonName || 'Chưa đủ thông tin để xác định loài'}</h2>
       {result.prediction.scientificName && <i>{result.prediction.scientificName}</i>}
