@@ -56,7 +56,7 @@ npm run dev
 
 ## Deploy Vercel
 
-Import repository với Root Directory là thư mục gốc và khai báo các biến `VITE_*` trên Vercel. `vercel.json` đã cấu hình build trong `web/` và rewrite SPA, nên reload trực tiếp `/chat`, `/explore`, `/login`… không bị 404.
+Import repository với **Root Directory = `web`** và khai báo các biến `VITE_*` trên Vercel. `vercel.json` đã cấu hình build và rewrite SPA, nên reload trực tiếp `/chat`, `/explore`, `/login`… không bị 404.
 
 ```bash
 npm run build
