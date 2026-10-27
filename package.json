@@ -3,16 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "dotenv -e .env -- concurrently -n web,api -c green,cyan \"npm --prefix web run dev\" \"npm --prefix api run start:dev\"",
-    "build": "npm --prefix web run build && npm --prefix api run build",
-    "test": "npm --prefix api test",
-    "test:e2e": "npm --prefix web run test:e2e",
-    "db:generate": "dotenv -e .env -- npm --prefix api run prisma:generate",
-    "db:migrate": "dotenv -e .env -- npm --prefix api run prisma:migrate --",
-    "db:seed": "dotenv -e .env -- npm --prefix api run prisma:seed"
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.2",
-    "dotenv-cli": "^8.0.0"
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "test:e2e": "npm --prefix web run test:e2e"
   }
 }

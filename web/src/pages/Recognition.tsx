@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Camera, RefreshCw, Upload } from 'lucide-react';
-import { api } from '../api';
+import { recognizeSpecies } from '../api';
 
 type SpeciesData = {
   species_name: string;
@@ -50,8 +50,7 @@ export default function Recognition() {
     event.preventDefault();
     if (!file) return;
     setBusy(true); setError(''); setResult(undefined);
-    const body = new FormData(); body.append('image', file);
-    try { setResult(await api('/species-recognition', { method: 'POST', body })); }
+    try {setResult(await recognizeSpecies<Result>(file));}
     catch (submitError) { setError(submitError instanceof Error ? submitError.message : 'Nhận diện thất bại'); }
     finally { setBusy(false); }
   }

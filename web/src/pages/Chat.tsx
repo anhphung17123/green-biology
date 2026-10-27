@@ -1,11 +1,11 @@
-import { FormEvent, useState } from 'react';
-import { Bot, CircleAlert, Send } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import rehypeKatex from 'rehype-katex';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import 'katex/dist/katex.min.css';
-import { api } from '../api';
+import { FormEvent, useState } from "react";
+import { Bot, CircleAlert, Send } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
+import { askBiology } from "../api";
 
 type Reply = {
   answer: string;
@@ -15,30 +15,35 @@ type Reply = {
 
 function normalizeModelMarkdown(markdown: string) {
   return markdown
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\n$$\n${expression.trim()}\n$$\n`)
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expression: string) => `$${expression.trim()}$`);
+    .replace(
+      /\\\[([\s\S]*?)\\\]/g,
+      (_, expression: string) => `\n$$\n${expression.trim()}\n$$\n`,
+    )
+    .replace(
+      /\\\(([\s\S]*?)\\\)/g,
+      (_, expression: string) => `$${expression.trim()}$`,
+    );
 }
 
 export default function Chat() {
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState("");
   const [reply, setReply] = useState<Reply>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setError('');
+    setError("");
     setBusy(true);
 
     try {
-      setReply(
-        await api('/biology-chat/ask', {
-          method: 'POST',
-          body: JSON.stringify({ question }),
-        }),
-      );
+      setReply(await askBiology<Reply>(question));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Không thể gửi câu hỏi');
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Không thể gửi câu hỏi",
+      );
     } finally {
       setBusy(false);
     }
@@ -47,10 +52,14 @@ export default function Chat() {
   return (
     <div className="page chat-page">
       <div className="chat-intro">
-        <div className="bot-big"><Bot /></div>
+        <div className="bot-big">
+          <Bot />
+        </div>
         <span className="kicker">TRỢ LÝ SINH HỌC</span>
         <h1>Hỏi điều bạn tò mò</h1>
-        <p>Hỏi về Sinh học, đa dạng sinh học, bảo tồn thiên nhiên và môi trường.</p>
+        <p>
+          Hỏi về Sinh học, đa dạng sinh học, bảo tồn thiên nhiên và môi trường.
+        </p>
       </div>
 
       {error && (
@@ -69,14 +78,20 @@ export default function Chat() {
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeKatex]}
                 components={{
-                  a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+                  a: ({ children, ...props }) => (
+                    <a {...props} target="_blank" rel="noreferrer">
+                      {children}
+                    </a>
+                  ),
                 }}
               >
                 {normalizeModelMarkdown(reply.answer)}
               </ReactMarkdown>
             </div>
             {reply.sources.length > 0 && (
-              <small>Nguồn: {reply.sources.map((source) => source.title).join(', ')}</small>
+              <small>
+                Nguồn: {reply.sources.map((source) => source.title).join(", ")}
+              </small>
             )}
             {reply.warning && <small>{reply.warning}</small>}
           </div>
@@ -91,9 +106,13 @@ export default function Chat() {
           onChange={(event) => setQuestion(event.target.value)}
           placeholder="Ví dụ: Quang hợp và hô hấp tế bào khác nhau thế nào?"
         />
-        <button disabled={busy || !question.trim()} aria-label="Gửi câu hỏi"><Send /></button>
+        <button disabled={busy || !question.trim()} aria-label="Gửi câu hỏi">
+          <Send />
+        </button>
       </form>
-      <p className="disclaimer">AI có thể nhầm lẫn. Hãy kiểm tra nguồn và hỏi giáo viên khi cần.</p>
+      <p className="disclaimer">
+        AI có thể nhầm lẫn. Hãy kiểm tra nguồn và hỏi giáo viên khi cần.
+      </p>
     </div>
   );
 }
