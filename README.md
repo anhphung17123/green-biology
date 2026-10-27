@@ -1,74 +1,64 @@
 # Green Biology
 
-Nền tảng học Sinh học gồm hai ứng dụng độc lập:
+Ứng dụng React/Vite chạy tĩnh trên Vercel, không có NestJS, PostgreSQL hoặc database tự host.
 
-- `api/`: NestJS, Prisma và PostgreSQL.
-- `web/`: React và Vite; chỉ giao tiếp với API qua `VITE_API_URL`.
+## Dữ liệu
 
-Mỗi ứng dụng có `package.json`, `package-lock.json`, `.env.example`, `node_modules` và `Dockerfile` riêng, nên có thể cài đặt, build và deploy độc lập. Các script ở root chỉ điều phối hai ứng dụng bằng `npm --prefix`, không dùng npm workspaces và không hoist dependency.
+- Sheet `Users` lưu tài khoản đăng nhập: `username`, `pwd`, `name`, `role`.
+- Sheet `Config` lưu cấu hình River AI và Species API.
+- Thử thách, bảng xếp hạng và thống kê giáo viên là mock data trong `web/src/mock-data.ts`.
+- Báo cáo minh họa được lưu trong `localStorage` của trình duyệt.
+- OpenStreetMap, Open-Meteo và WAQI được web gọi trực tiếp. River AI và Species API được gọi qua Apps Script để tránh lỗi CORS/cookie.
 
-## Phát triển cục bộ
+## Thiết lập Google Sheets
 
-Yêu cầu Node.js 20+, npm 10+ và Docker.
+1. Tạo Google Sheet và lấy ID trong URL.
+2. Tạo Apps Script, chép `google-apps-script/Code.gs` và `appsscript.json`.
+3. Thêm Script Property `SHEET_ID`.
+4. Chạy `setup()` một lần để tạo sheet `Users` và `Config`.
+5. Có thể thêm tài khoản trực tiếp vào Sheet, ví dụ:
+
+| username | pwd | name | role |
+| --- | --- | --- | --- |
+| student01 | 123456 | Nguyễn Văn A | STUDENT |
+| teacher01 | 123456 | Giáo viên | TEACHER |
+
+Người dùng cũng có thể tự đăng ký trên website. Tài khoản tự đăng ký luôn có role `STUDENT`; tài khoản `TEACHER` chỉ được tạo thủ công trong Sheet.
+
+Trong sheet `Config`, điền giá trị cho các key:
+
+| key | value |
+| --- | --- |
+| RIVER_API_KEY | Khóa River AI |
+| RIVER_BASE_URL | https://api.river.ai/v1 |
+| SPECIES_API_URL | https://trituexanhhocduong.4devvn.com/api/identify-species.php |
+| SPECIES_API_PHPSESSID | Phiên đăng nhập Species API |
+
+6. Deploy Apps Script dạng Web app, quyền truy cập `Anyone`, rồi lấy URL `/exec`.
+
+## Biến môi trường web
+
+Sao chép `web/.env.example` thành `web/.env` và điền:
+
+```env
+VITE_GOOGLE_SCRIPT_URL="https://script.google.com/macros/s/DEPLOYMENT_ID/exec"
+VITE_WAQI_MAP_KEY="..."
+```
+
+Các biến `VITE_*` được đóng gói công khai vào JavaScript phía trình duyệt.
+
+## Chạy local
 
 ```bash
-cp .env.example .env
-docker compose up -d postgres
-npm install
-npm --prefix api ci
 npm --prefix web ci
-npm run db:generate
-npm run db:migrate -- --name init
-npm run db:seed
 npm run dev
 ```
 
-- Web: http://localhost:5173
-- API: http://localhost:3000/api
-- Swagger: http://localhost:3000/docs
-- PostgreSQL: `127.0.0.1:55432`
+## Deploy Vercel
 
-## Deploy API riêng
+Import repository với Root Directory là thư mục gốc và khai báo các biến `VITE_*` trên Vercel. `vercel.json` đã cấu hình build trong `web/` và rewrite SPA, nên reload trực tiếp `/chat`, `/explore`, `/login`… không bị 404.
 
 ```bash
-cd api
-cp .env.example .env
-npm ci
-npm run prisma:generate
 npm run build
-npm start
-```
-
-```bash
-docker build -t green-biology-api ./api
-```
-
-API cần `DATABASE_URL`, `JWT_SECRET` và `WEB_ORIGIN`. Các khóa River AI và Species API chỉ đặt ở API, không đưa sang web.
-
-## Deploy web riêng
-
-```bash
-cd web
-cp .env.example .env
-npm ci
-npm run build
-npm run preview
-```
-
-```bash
-docker build --build-arg VITE_API_URL=https://api.example.com/api -t green-biology-web ./web
-```
-
-## Kiểm tra
-
-```bash
-cd api && npm test
-cd ../web && npm run build
-```
-
-E2E cần API đã được build trước:
-
-```bash
-cd api && npm run build
-cd ../web && npm run test:e2e
+npm run test:e2e
 ```

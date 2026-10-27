@@ -1,4 +1,121 @@
-import { ArrowRight, Bot, Camera, CloudSun, Gamepad2, Leaf, Map, Sparkles, Trophy } from 'lucide-react';
-import { Link } from 'react-router-dom';
-const cards = [['/explore', Map, 'Bản đồ thiên nhiên', 'Khám phá hệ sinh thái và khu bảo tồn Việt Nam', 'mint'], ['/air-quality', CloudSun, 'Không khí hôm nay', 'Theo dõi chất lượng không khí theo dữ liệu thực', 'blue'], ['/challenges', Trophy, 'Thử thách xanh', 'Hành động nhỏ, tích điểm và tạo thay đổi', 'yellow'], ['/games', Gamepad2, 'Trò chơi sinh học', 'Học về loài và sinh cảnh qua trò chơi', 'purple'], ['/chat', Bot, 'Hỏi trợ lý Sinh học', 'Giải thích kiến thức dễ hiểu với River AI', 'pink'], ['/recognition', Camera, 'Nhận diện động vật', 'Tải ảnh để phân loại bằng Species API', 'orange']] as const;
-export default function Home() { return <div className="page home-page"><section className="hero"><div className="hero-copy"><div className="eyebrow"><Leaf size={15} /> HỌC · KHÁM PHÁ · HÀNH ĐỘNG</div><h1>Hiểu thiên nhiên.<br /><em>Sống xanh hơn.</em></h1><p>Khám phá thế giới sinh học Việt Nam qua dữ liệu, trò chơi và những hành động nhỏ tạo nên thay đổi lớn.</p><div className="hero-actions"><Link className="btn primary" to="/explore">Bắt đầu khám phá <ArrowRight size={18} /></Link><Link className="btn secondary" to="/games">Chơi & học</Link></div><div className="hero-proof"><span><b>10+</b> công cụ học tập</span><span><b>100%</b> dữ liệu có nguồn</span></div></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="sun" /><div className="globe">🌏<i>🌿</i><b>🦋</b></div><span className="float one">🐒</span><span className="float two">🐢</span><span className="float three">🌱</span></div></section><section><div className="section-title"><div><small>KHÁM PHÁ GREEN BIOLOGY</small><h2>Hôm nay bạn muốn làm gì?</h2><p>Chọn một hoạt động để bắt đầu hành trình của bạn.</p></div><Sparkles size={28} /></div><div className="feature-grid">{cards.map(([to, Icon, title, description, color], index) => <Link to={to} className={`feature ${color}`} key={title}><span className="feature-number">0{index + 1}</span><div className="feature-icon"><Icon /></div><div className="feature-copy"><h3>{title}</h3><p>{description}</p></div><span className="feature-go">Khám phá <ArrowRight size={16} /></span></Link>)}</div></section></div>; }
+import {
+  ArrowRight,
+  Bot,
+  Camera,
+  CloudSun,
+  Gamepad2,
+  Leaf,
+  Map,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+const cards = [
+  [
+    "/explore",
+    Map,
+    "Bản đồ thiên nhiên",
+    "Khám phá hệ sinh thái và khu bảo tồn Việt Nam",
+    "mint",
+  ],
+  [
+    "/air-quality",
+    CloudSun,
+    "Không khí hôm nay",
+    "Theo dõi chất lượng không khí theo dữ liệu thực",
+    "blue",
+  ],
+  [
+    "/challenges",
+    Trophy,
+    "Thử thách xanh",
+    "Hành động nhỏ, tích điểm và tạo thay đổi",
+    "yellow",
+  ],
+  [
+    "/games",
+    Gamepad2,
+    "Trò chơi sinh học",
+    "Học về loài và sinh cảnh qua trò chơi",
+    "purple",
+  ],
+  ["/chat", Bot, "Hỏi trợ lý Sinh học", "Giải thích kiến thức dễ hiểu với River AI", "pink"],
+  ["/recognition", Camera, "Nhận diện động vật", "Tải ảnh để phân loại bằng Species API", "orange"],
+] as const;
+export default function Home() {
+  return (
+    <div className="page home-page">
+      <section className="hero">
+        <div className="hero-copy">
+          <div className="eyebrow">
+            <Leaf size={15} /> HỌC · KHÁM PHÁ · HÀNH ĐỘNG
+          </div>
+          <h1>
+            Hiểu thiên nhiên.
+            <br />
+            <em>Sống xanh hơn.</em>
+          </h1>
+          <p>
+            Khám phá thế giới sinh học Việt Nam qua dữ liệu, trò chơi và những
+            hành động nhỏ tạo nên thay đổi lớn.
+          </p>
+          <div className="hero-actions">
+            <Link className="btn primary" to="/explore">
+              Bắt đầu khám phá <ArrowRight size={18} />
+            </Link>
+            <Link className="btn secondary" to="/games">
+              Chơi & học
+            </Link>
+          </div>
+          <div className="hero-proof">
+            <span>
+              <b>10+</b> công cụ học tập
+            </span>
+            <span>
+              <b>100%</b> dữ liệu có nguồn
+            </span>
+          </div>
+        </div>
+        <div className="hero-art" aria-hidden="true">
+          <div className="orbit orbit-one" />
+          <div className="orbit orbit-two" />
+          <div className="sun" />
+          <div className="globe">
+            🌏<i>🌿</i>
+            <b>🦋</b>
+          </div>
+          <span className="float one">🐒</span>
+          <span className="float two">🐢</span>
+          <span className="float three">🌱</span>
+        </div>
+      </section>
+      <section>
+        <div className="section-title">
+          <div>
+            <small>KHÁM PHÁ GREEN BIOLOGY</small>
+            <h2>Hôm nay bạn muốn làm gì?</h2>
+            <p>Chọn một hoạt động để bắt đầu hành trình của bạn.</p>
+          </div>
+          <Sparkles size={28} />
+        </div>
+        <div className="feature-grid">
+          {cards.map(([to, Icon, title, description, color], index) => (
+            <Link to={to} className={`feature ${color}`} key={title}>
+              <span className="feature-number">0{index + 1}</span>
+              <div className="feature-icon">
+                <Icon />
+              </div>
+              <div className="feature-copy">
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </div>
+              <span className="feature-go">
+                Khám phá <ArrowRight size={16} />
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

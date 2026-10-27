@@ -1,2 +1,32 @@
-import{FormEvent,useState}from'react';import{MapPin,Upload}from'lucide-react';import{api}from'../api';
-export default function Reports(){const[title,setTitle]=useState(''),[description,setDescription]=useState(''),[type,setType]=useState('WASTE'),[lat,setLat]=useState(16.0544),[lng,setLng]=useState(108.2022),[files,setFiles]=useState<File[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);async function submit(e:FormEvent){e.preventDefault();setBusy(true);setMessage('');try{const report=await api<{id:string}>('/reports',{method:'POST',body:JSON.stringify({title,description,incidentType:type,latitude:lat,longitude:lng,preciseLocationPublic:false})});if(files.length){const body=new FormData();files.forEach(f=>body.append('images',f));await api(`/reports/${report.id}/media`,{method:'POST',body})}setMessage('Đã gửi báo cáo. Báo cáo chỉ xuất hiện công khai sau khi giáo viên duyệt.');setTitle('');setDescription('');setFiles([])}catch(e){setMessage(e instanceof Error?e.message:'Không thể gửi báo cáo')}finally{setBusy(false)}}return<div className="page"><div className="page-head"><div><span className="kicker">HÀNH ĐỘNG CỘNG ĐỒNG</span><h1>Báo cáo vấn đề môi trường</h1><p>Tọa độ chính xác được giữ riêng mặc định và nội dung phải qua giáo viên kiểm duyệt.</p></div></div><form className="report-form" onSubmit={submit}><label>Tiêu đề<input value={title} onChange={e=>setTitle(e.target.value)} required minLength={5}/></label><label>Mô tả<textarea value={description} onChange={e=>setDescription(e.target.value)} required minLength={20}/></label><label>Loại sự cố<select value={type} onChange={e=>setType(e.target.value)}><option value="WASTE">Rác thải</option><option value="WATER_POLLUTION">Ô nhiễm nước</option><option value="AIR_POLLUTION">Ô nhiễm không khí</option><option value="ENVIRONMENTAL_DESTRUCTION">Phá hoại môi trường</option><option value="OTHER">Khác</option></select></label><div className="coord-pair"><label>Vĩ độ<input type="number" step="any" value={lat} onChange={e=>setLat(+e.target.value)}/></label><label>Kinh độ<input type="number" step="any" value={lng} onChange={e=>setLng(+e.target.value)}/></label></div><label className="file-label"><Upload/>Ảnh minh chứng (tối đa 5 ảnh, mỗi ảnh 5 MB)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files||[]).slice(0,5))}/></label><button className="btn primary" disabled={busy}><MapPin/>{busy?'Đang gửi…':'Gửi báo cáo'}</button>{message&&<div className="notice">{message}</div>}</form></div>}
+import { FormEvent, useState } from "react";
+import { MapPin } from "lucide-react";
+
+export default function Reports() {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("WASTE");
+  const [lat, setLat] = useState(16.0544);
+  const [lng, setLng] = useState(108.2022);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const reports=JSON.parse(localStorage.getItem("green_mock_reports")||"[]");
+      reports.push({id:crypto.randomUUID(),title,description,incidentType:type,latitude:lat,longitude:lng,createdAt:new Date().toISOString()});
+      localStorage.setItem("green_mock_reports",JSON.stringify(reports));
+      setMessage("Đã lưu báo cáo minh họa trên trình duyệt.");
+      setTitle("");
+      setDescription("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể gửi báo cáo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="page"><div className="page-head"><div><span className="kicker">HÀNH ĐỘNG CỘNG ĐỒNG</span><h1>Báo cáo vấn đề môi trường</h1><p>Dữ liệu minh họa chỉ được lưu trên trình duyệt hiện tại.</p></div></div><form className="report-form" onSubmit={submit}><label>Tiêu đề<input value={title} onChange={e=>setTitle(e.target.value)} required minLength={5}/></label><label>Mô tả<textarea value={description} onChange={e=>setDescription(e.target.value)} required minLength={20}/></label><label>Loại sự cố<select value={type} onChange={e=>setType(e.target.value)}><option value="WASTE">Rác thải</option><option value="WATER_POLLUTION">Ô nhiễm nước</option><option value="AIR_POLLUTION">Ô nhiễm không khí</option><option value="ENVIRONMENTAL_DESTRUCTION">Phá hoại môi trường</option><option value="OTHER">Khác</option></select></label><div className="coord-pair"><label>Vĩ độ<input type="number" step="any" value={lat} onChange={e=>setLat(+e.target.value)}/></label><label>Kinh độ<input type="number" step="any" value={lng} onChange={e=>setLng(+e.target.value)}/></label></div><button className="btn primary" disabled={busy}><MapPin/>{busy?'Đang gửi…':'Gửi báo cáo'}</button>{message&&<div className="notice">{message}</div>}</form></div>;
+}
