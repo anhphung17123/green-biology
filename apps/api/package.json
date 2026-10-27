@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "prestart:dev": "prisma generate",
     "start:dev": "nest start --watch",
+    "prebuild": "prisma generate",
     "build": "nest build",
     "test": "jest --config jest.config.cjs --watchman=false",
     "prisma:generate": "prisma generate",

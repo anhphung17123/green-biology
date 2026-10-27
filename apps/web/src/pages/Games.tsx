@@ -1,3 +1,55 @@
-import{useEffect,useState}from'react';import{useQuery}from'@tanstack/react-query';import{CheckCircle2,Gamepad2}from'lucide-react';import{api}from'../api';import{useAuth}from'../auth';
-type Game={id:string;title:string;type:'HABITAT_MATCH'|'FOREST_DETECTIVE'};type Question={id:string;prompt:string;explanation:string;imageUrl?:string;choices:{id:string;text:string}[]};type Review={questionId:string;choiceId:string;correct:boolean;explanation:string;correctAnswer:string};
-export default function Games(){const{user}=useAuth();const games=useQuery({queryKey:['games'],queryFn:()=>api<Game[]>('/games')});const[selected,setSelected]=useState<Game>(),[questions,setQuestions]=useState<Question[]>([]),[step,setStep]=useState(0),[answers,setAnswers]=useState<{questionId:string;choiceId:string}[]>([]),[review,setReview]=useState<Review[]>(),[error,setError]=useState('');useEffect(()=>{if(!selected)return;api<Question[]>(`/games/${selected.id}/questions`).then(q=>{setQuestions(q);setStep(0);setAnswers([]);setReview(undefined)}).catch(e=>setError(e.message))},[selected]);async function answer(choiceId:string){const next=[...answers,{questionId:questions[step].id,choiceId}];setAnswers(next);if(step<questions.length-1)setStep(step+1);else{if(!user){setError('Hãy đăng nhập để lưu kết quả.');return}try{const out=await api<{results:Review[]}>('/games/attempts',{method:'POST',body:JSON.stringify({gameId:selected!.id,answers:next})});setReview(out.results)}catch(e){setError(e instanceof Error?e.message:'Không thể lưu kết quả')}}}if(!selected)return<div className="page"><div className="page-head"><div><span className="kicker">TRÒ CHƠI SINH HỌC</span><h1>Chọn một trò chơi</h1><p>Câu hỏi được quản lý trong cơ sở dữ liệu và có giải thích sau khi hoàn thành.</p></div></div><div className="challenge-grid">{games.data?.map(g=><button className="game-select" key={g.id} onClick={()=>setSelected(g)}><Gamepad2/><h2>{g.title}</h2><p>{g.type==='FOREST_DETECTIVE'?'Quan sát dấu hiệu và tìm ra loài bí ẩn.':'Ghép sinh vật với sinh cảnh phù hợp.'}</p></button>)}</div>{games.data?.length===0&&<div className="empty">Giáo viên chưa tạo trò chơi.</div>}</div>;if(review)return<div className="page game-page"><div className="result"><CheckCircle2/><h1>Hoàn thành!</h1><strong>{review.filter(x=>x.correct).length}/{review.length} câu đúng</strong>{review.map((r,i)=><div className={r.correct?'review ok':'review'} key={r.questionId}><b>Câu {i+1}: {r.correct?'Chính xác':'Đáp án đúng: '+r.correctAnswer}</b><p>{r.explanation}</p></div>)}<button className="btn primary" onClick={()=>setSelected(undefined)}>Chọn trò chơi khác</button></div></div>;const q=questions[step];return<div className="page game-page"><button className="back-link" onClick={()=>setSelected(undefined)}>← Trò chơi</button><span className="kicker">{selected.title}</span>{q?<div className="game-card"><div className="progress"><span style={{width:`${step/questions.length*100}%`}}/></div><small>CÂU {step+1}/{questions.length}</small>{q.imageUrl&&<img className="clue-image" src={q.imageUrl} alt="Gợi ý nhận diện"/>}<h2>{q.prompt}</h2><div className="answers">{q.choices.map(c=><button key={c.id} onClick={()=>void answer(c.id)}>{c.text}</button>)}</div></div>:<div className="empty">Trò chơi chưa có câu hỏi đang hoạt động.</div>}{error&&<div className="notice">{error}</div>}</div>}
+import { ExternalLink, Search, Trees } from 'lucide-react';
+
+const games = [
+  {
+    title: 'Khám phá môi trường sống',
+    description: 'Kéo thả các sinh vật vào đúng môi trường sống của chúng.',
+    href: 'https://share.gemini.google/mtzBY4NhrNBz',
+    icon: Trees,
+    theme: 'habitat',
+  },
+  {
+    title: 'Thám tử rừng xanh',
+    description: 'Quan sát bóng đen và lựa chọn đúng sinh vật đang ẩn mình.',
+    href: 'https://share.gemini.google/hVMYUhpKReTE',
+    icon: Search,
+    theme: 'detective',
+  },
+] as const;
+
+export default function Games() {
+  return (
+    <div className="page games-page">
+      <div className="page-head">
+        <div>
+          <span className="kicker">TRÒ CHƠI TƯƠNG TÁC</span>
+          <h1>Chơi để khám phá</h1>
+          <p>Chọn một trò chơi và bắt đầu hành trình tìm hiểu thế giới sinh vật.</p>
+        </div>
+      </div>
+
+      <div className="game-link-grid">
+        {games.map(({ title, description, href, icon: Icon, theme }, index) => (
+          <a
+            className={`game-link-card ${theme}`}
+            href={href}
+            key={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${title} (mở trong tab mới)`}
+          >
+            <div className="game-link-number">Trò chơi {index + 1}</div>
+            <div className="game-link-icon"><Icon aria-hidden="true" /></div>
+            <div className="game-link-content">
+              <h2>{title}</h2>
+              <p>{description}</p>
+              <span>Chơi ngay <ExternalLink size={17} aria-hidden="true" /></span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <p className="game-external-note">Trò chơi được mở trên Gemini trong một tab mới.</p>
+    </div>
+  );
+}
