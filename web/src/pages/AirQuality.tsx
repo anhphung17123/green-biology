@@ -114,39 +114,8 @@ export default function AirQuality() {
         <div>
           <span className="kicker">KHÔNG KHÍ HÔM NAY</span>
           <h1>Chất lượng không khí</h1>
-          <p>
-            Trạm quan trắc WAQI trên bản đồ và dữ liệu mô hình CAMS tại tọa độ
-            đã chọn.
-          </p>
         </div>
       </div>
-      <form className="coords" onSubmit={submit}>
-        <MapPin />
-        <label>
-          Vĩ độ
-          <input
-            type="number"
-            step="any"
-            value={coords.lat}
-            onChange={(event) =>
-              setCoords({ ...coords, lat: +event.target.value })
-            }
-          />
-        </label>
-        <label>
-          Kinh độ
-          <input
-            type="number"
-            step="any"
-            value={coords.lng}
-            onChange={(event) =>
-              setCoords({ ...coords, lng: +event.target.value })
-            }
-          />
-        </label>
-        <button className="btn primary">Xem AQI</button>
-      </form>
-
       <section className="aqi-map-card">
         <div className="aqi-map-heading">
           <div>
@@ -202,57 +171,7 @@ export default function AirQuality() {
             </Marker>
           ))}
         </MapContainer>
-        <p className="source-note">
-          Dữ liệu trạm: World Air Quality Index Project (WAQI). Nền bản đồ:
-          OpenStreetMap.
-        </p>
       </section>
-
-      {q.isLoading && <div className="empty">Đang tải dữ liệu Open‑Meteo…</div>}
-      {q.isError && (
-        <div className="notice">
-          Không thể tải dữ liệu AQI. Không có giá trị thay thế giả.
-        </div>
-      )}
-      {q.data && (
-        <div className="aqi-grid">
-          <article
-            className={`aqi-card aqi-${Math.min(5, Math.floor(q.data.index.value / 50))}`}
-          >
-            <CloudSun />
-            <span>{q.data.index.system}</span>
-            <strong>{q.data.index.value}</strong>
-            <h2>{q.data.index.category}</h2>
-          </article>
-          <article className="data-card">
-            <h3>Thành phần</h3>
-            <p>
-              PM2.5{" "}
-              <b>
-                {q.data.pollutants.pm2_5} {q.data.pollutants.unit}
-              </b>
-            </p>
-            <p>
-              PM10{" "}
-              <b>
-                {q.data.pollutants.pm10} {q.data.pollutants.unit}
-              </b>
-            </p>
-            <p>
-              Thời điểm{" "}
-              <b>{new Date(q.data.measuredAt).toLocaleString("vi-VN")}</b>
-            </p>
-          </article>
-          <article className="data-card span2">
-            <h3>Quy ước và nguồn</h3>
-            <p>{q.data.index.convention}</p>
-            <p>{q.data.source.kind}</p>
-            <a href={q.data.source.url} target="_blank" rel="noreferrer">
-              {q.data.source.provider}
-            </a>
-          </article>
-        </div>
-      )}
     </div>
   );
 }

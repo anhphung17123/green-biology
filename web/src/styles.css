@@ -1394,7 +1394,7 @@ header {
   white-space: nowrap;
 }
 .aqi-map {
-  height: 480px;
+  height: 560px;
   border-radius: 14px;
 }
 .aqi-marker-shell {

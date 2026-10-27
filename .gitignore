@@ -1,9 +1,9 @@
 **/node_modules/
 dist
 .env
-uploads/*
-!uploads/.gitkeep
+api/uploads/*
+!api/uploads/.gitkeep
 coverage
 *.tsbuildinfo
 .DS_Store
-apps/api/prisma/dev.db
+api/prisma/dev.db

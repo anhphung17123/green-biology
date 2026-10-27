@@ -38,7 +38,7 @@ class ModerateDto {
 }
 const imageOptions = {
   storage: diskStorage({
-    destination: process.env.UPLOAD_DIR || "../../uploads",
+    destination: process.env.UPLOAD_DIR || "uploads",
     filename: (
       _: unknown,
       f: Express.Multer.File,
