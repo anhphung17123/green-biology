@@ -1,64 +1,74 @@
-# Green Biology — Explore Life, Protect the Environment
+# Green Biology
 
-Monorepo thử nghiệm cho nền tảng học và trải nghiệm Sinh học THPT. Giao diện dùng React/Vite; REST API dùng NestJS; dữ liệu dùng PostgreSQL/Prisma. Hệ thống không tạo dữ liệu AQI hoặc kết quả AI giả khi dịch vụ chưa sẵn sàng.
+Nền tảng học Sinh học gồm hai ứng dụng độc lập:
 
-## Chạy cục bộ
+- `api/`: NestJS, Prisma và PostgreSQL.
+- `web/`: React và Vite; chỉ giao tiếp với API qua `VITE_API_URL`.
 
-Yêu cầu: Node.js 20+, npm 10+, Docker Desktop.
+Mỗi ứng dụng có `package.json`, `package-lock.json`, `.env.example`, `node_modules` và `Dockerfile` riêng, nên có thể cài đặt, build và deploy độc lập. Các script ở root chỉ điều phối hai ứng dụng bằng `npm --prefix`, không dùng npm workspaces và không hoist dependency.
+
+## Phát triển cục bộ
+
+Yêu cầu Node.js 20+, npm 10+ và Docker.
 
 ```bash
-cp .env.example .env # bỏ qua nếu tệp .env đã tồn tại
+cp .env.example .env
 docker compose up -d postgres
 npm install
+npm --prefix api ci
+npm --prefix web ci
 npm run db:generate
 npm run db:migrate -- --name init
 npm run db:seed
 npm run dev
 ```
 
-Chạy từng dòng lệnh riêng. Những dòng bắt đầu bằng `#` là chú thích; không cần dán chúng vào zsh. Các lệnh `db:*` tự nạp tệp `.env` ở thư mục gốc, kể cả khi Prisma chạy trong workspace `apps/api`.
-
 - Web: http://localhost:5173
 - API: http://localhost:3000/api
 - Swagger: http://localhost:3000/docs
-- PostgreSQL của dự án được xuất ra cổng `55432` để tránh xung đột với các PostgreSQL cục bộ thường dùng cổng `5432` hoặc `5433`.
-- Tài khoản phát triển sau khi seed: `student@example.local` hoặc `teacher@example.local`, mật khẩu `GreenBio123!`. Đây là dữ liệu phát triển, không dùng trong production.
+- PostgreSQL: `127.0.0.1:55432`
 
-## AI
-
-Chatbot sử dụng OpenAI Responses API. Thêm khóa chỉ vào `.env` phía backend:
+## Deploy API riêng
 
 ```bash
-OPENAI_API_KEY="sk-..."
-OPENAI_MODEL="gpt-6-luna"
-OPENAI_VISION_MODEL="gpt-6-luna"
-OPENAI_EMBED_MODEL="text-embedding-3-small"
-OPENAI_TIMEOUT_MS=30000
+cd api
+cp .env.example .env
+npm ci
+npm run prisma:generate
+npm run build
+npm start
 ```
 
-Không đặt khóa trong biến `VITE_*`. Model mặc định ưu tiên chi phí thấp; quyền truy cập, hạn mức và ưu đãi miễn phí phụ thuộc project OpenAI của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi OpenAI.
+```bash
+docker build -t green-biology-api ./api
+```
 
-Nhận diện thực vật/động vật cũng sử dụng OpenAI Responses API với ảnh đầu vào. API kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Model trả kết quả theo JSON schema bắt buộc; khi không đủ dấu hiệu phân biệt, giao diện hiển thị rõ là chưa thể xác định thay vì đoán tên loài. `OPENAI_VISION_MODEL` có thể cấu hình riêng và mặc định dùng cùng model tiết kiệm với chatbot.
+API cần `DATABASE_URL`, `JWT_SECRET` và `WEB_ORIGIN`. Các khóa River AI và Species API chỉ đặt ở API, không đưa sang web.
 
-Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất, chia đoạn và tạo embedding bằng OpenAI `text-embedding-3-small`. Nếu OpenAI không được cấu hình hoặc xử lý embedding thất bại, tài liệu chuyển sang `FAILED` kèm thông báo thay vì được đánh dấu sẵn sàng với dữ liệu thiếu. Chatbot không phụ thuộc vào kho tài liệu. Nhận diện ảnh lưu lịch sử và đối chiếu tên khoa học dự đoán với bảng `Species`.
+## Deploy web riêng
 
-## Dữ liệu và an toàn
+```bash
+cd web
+cp .env.example .env
+npm ci
+npm run build
+npm run preview
+```
 
-- Bản đồ nền là OpenStreetMap; phải giữ attribution khi triển khai.
-- Bản ghi Sơn Trà trong seed được ghi rõ là dữ liệu phát triển, không có diện tích hoặc tình trạng bảo tồn chưa kiểm chứng.
-- API thực thi JWT và vai trò `STUDENT`/`TEACHER` ở server. Điểm thử thách được lấy từ database và cộng trong transaction đúng một lần.
-- Chỉ báo cáo `APPROVED` xuất hiện ở endpoint công khai. Tọa độ chính xác cần được làm mờ ở lớp trình bày khi `preciseLocationPublic=false` trước khi production.
-- Upload ảnh nhận diện giới hạn mặc định 5 MB, dùng MIME allowlist, kiểm tra magic bytes và tên tệp UUID. Cần thiết lập chính sách lưu/xóa ảnh phù hợp trước khi triển khai production.
-
-## Trạng thái chức năng
-
-Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker xử lý tài liệu bằng OpenAI Embeddings; chatbot OpenAI có kiểm tra phạm vi backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện loài bằng OpenAI Vision; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu OpenAI chưa được cấu hình hoặc tạm thời không khả dụng.
+```bash
+docker build --build-arg VITE_API_URL=https://api.example.com/api -t green-biology-web ./web
+```
 
 ## Kiểm tra
 
 ```bash
-npm run db:generate
-npm run build
-npm test
-npm run test:e2e
+cd api && npm test
+cd ../web && npm run build
+```
+
+E2E cần API đã được build trước:
+
+```bash
+cd api && npm run build
+cd ../web && npm run test:e2e
 ```
