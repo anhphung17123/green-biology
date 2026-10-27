@@ -1,47 +1,49 @@
-import { FormEvent, useState } from 'react';
-import { Camera, Upload } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Camera, RefreshCw, Upload } from 'lucide-react';
 import { api } from '../api';
 
-type Prediction = {
-  identifiable: boolean;
-  scientificName: string | null;
-  commonName: string | null;
-  organismGroup: string | null;
-  identifyingFeatures: string[];
-  habitat: string | null;
-  certainty: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
-  certaintyReason: string;
-  limitations: string;
+type SpeciesData = {
+  species_name: string;
+  scientific_name: string;
+  endangerment_level: string;
+  characteristics: string;
+  habitat: string;
+  conservation_guide: string;
+  fun_facts: string[];
+  student_question: string;
+  student_answer: string;
+  confidence: number;
 };
-type Result = {
-  prediction: Prediction;
-  warning: string;
-  species?: {
-    commonName: string; scientificName: string; group?: string; habitat?: string;
-    characteristics?: string; conservationStatus?: string;
-    source?: { title: string; url: string };
-  };
-};
+type Result = { success: true; mode: 'species'; data: SpeciesData; log_id: number; image_url: string };
 
-const certaintyLabels: Record<Prediction['certainty'], string> = {
-  HIGH: 'Cao', MEDIUM: 'Trung bình', LOW: 'Thấp', UNKNOWN: 'Không xác định',
-};
 const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const maxBytes = 5 * 1024 * 1024;
+const conservationLabels: Record<string, string> = {
+  EX: 'Tuyệt chủng', EW: 'Tuyệt chủng ngoài tự nhiên', CR: 'Cực kỳ nguy cấp', EN: 'Nguy cấp',
+  VU: 'Sẽ nguy cấp', NT: 'Sắp bị đe dọa', LC: 'Ít quan tâm', DD: 'Thiếu dữ liệu', NE: 'Chưa đánh giá',
+};
 
 export default function Recognition() {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File>();
+  const [previewUrl, setPreviewUrl] = useState('');
   const [result, setResult] = useState<Result>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!file) { setPreviewUrl(''); return; }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   function chooseFile(next?: File) {
     setResult(undefined);
     if (!next) { setFile(undefined); return; }
     if (!allowedTypes.includes(next.type)) { setFile(undefined); setError('Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP.'); return; }
     if (next.size > maxBytes) { setFile(undefined); setError('Ảnh không được vượt quá 5 MB.'); return; }
-    setError('');
-    setFile(next);
+    setError(''); setFile(next);
   }
 
   async function submit(event: FormEvent) {
@@ -54,37 +56,46 @@ export default function Recognition() {
     finally { setBusy(false); }
   }
 
+  function reset() {
+    setFile(undefined); setResult(undefined); setError('');
+    if (inputRef.current) inputRef.current.value = '';
+    inputRef.current?.click();
+  }
+
+  const data = result?.data;
+  const levelLabel = data ? conservationLabels[data.endangerment_level.toUpperCase()] || data.endangerment_level : '';
+
   return <div className="page recognition">
-    <span className="kicker">RIVER AI VISION</span>
+    <span className="kicker">SPECIES API</span>
     <h1>Nhận diện động vật</h1>
-    <p>Tải ảnh rõ nét của động vật. Kết quả chỉ là dự đoán sơ bộ và được đối chiếu với cơ sở dữ liệu loài của hệ thống.</p>
-    <form className="upload-box" onSubmit={submit}>
-      <Camera size={45} />
-      <input id="species-image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => chooseFile(event.target.files?.[0])} />
+    <p>Tải ảnh rõ nét để nhận diện loài và khám phá thông tin bảo tồn.</p>
+
+    {!result && <form className="upload-box" onSubmit={submit}>
+      {previewUrl ? <img className="recognition-preview" src={previewUrl} alt="Ảnh động vật đã chọn" /> : <Camera size={45} />}
+      <input ref={inputRef} id="species-image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => chooseFile(event.target.files?.[0])} />
       <label htmlFor="species-image"><Upload /> {file?.name || 'Chọn ảnh động vật'}</label>
       <small>JPEG, PNG hoặc WebP · tối đa 5 MB</small>
       <button className="btn primary" disabled={!file || busy}>{busy ? 'Đang phân tích…' : 'Nhận diện'}</button>
-    </form>
-    {error && <div className="notice">{error} Ứng dụng không tạo kết quả giả khi River AI không khả dụng.</div>}
-    {result && <div className="prediction">
-      <h2>{result.prediction.commonName || 'Chưa đủ thông tin để xác định loài'}</h2>
-      {result.prediction.scientificName && <i>{result.prediction.scientificName}</i>}
-      {result.prediction.organismGroup && <p>Nhóm sinh vật: {result.prediction.organismGroup}</p>}
-      <p><b>Mức chắc chắn:</b> {certaintyLabels[result.prediction.certainty]} — {result.prediction.certaintyReason}</p>
-      {result.prediction.identifyingFeatures.length > 0 && <div>
-        <h3>Đặc điểm nhận dạng quan sát được</h3>
-        <ul>{result.prediction.identifyingFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>
-      </div>}
-      <p><b>Môi trường sống thường gặp:</b> {result.prediction.habitat || 'Không thể xác định đáng tin cậy từ ảnh này.'}</p>
-      <p><b>Giới hạn:</b> {result.prediction.limitations}</p>
-      <strong>{result.warning}</strong>
-      {result.species ? <div className="verified">
-        <h3>Thông tin đã đối chiếu trong cơ sở dữ liệu</h3>
-        <p>{result.species.habitat || 'Chưa có dữ liệu sinh cảnh'}</p>
-        <p>{result.species.characteristics}</p>
-        <p>Tình trạng bảo tồn: {result.species.conservationStatus || 'Chưa có dữ liệu có nguồn'}</p>
-        {result.species.source?.url && <a href={result.species.source.url} target="_blank" rel="noreferrer">{result.species.source.title}</a>}
-      </div> : <p>Chưa tìm thấy bản ghi tương ứng trong cơ sở dữ liệu loài.</p>}
-    </div>}
+    </form>}
+
+    {error && <div className="notice">{error} Ứng dụng không tạo kết quả giả khi Species API không khả dụng.</div>}
+
+    {data && <article className="species-result">
+      <img className="species-hero" src={previewUrl || result.image_url} alt={`Ảnh ${data.species_name}`} />
+      <header className="species-heading">
+        <div><h2>{data.species_name}</h2><i>{data.scientific_name}</i></div>
+        <span className={`conservation-badge level-${data.endangerment_level.toLowerCase()}`}>{levelLabel}</span>
+      </header>
+      <div className="species-confidence">Độ tin cậy: <b>{Math.round(data.confidence * 100)}%</b></div>
+
+      <section className="species-info-card"><h3>🔎 Đặc điểm nhận dạng</h3><p>{data.characteristics}</p></section>
+      <section className="species-info-card"><h3>⚠️ Mức độ nguy cấp</h3><p><b>{data.endangerment_level}</b> – {levelLabel} theo thang IUCN.</p></section>
+      <section className="species-info-card"><h3>🏠 Môi trường sống</h3><p>{data.habitat}</p></section>
+      <section className="species-info-card"><h3>🌱 Hướng dẫn bảo tồn</h3><p>{data.conservation_guide}</p></section>
+
+      {data.fun_facts.length > 0 && <section className="species-facts"><h3>✨ Bạn có biết?</h3><ul>{data.fun_facts.map((fact) => <li key={fact}>✨ <span>{fact}</span></li>)}</ul></section>}
+      <section className="species-quiz"><h3>📝 Câu hỏi ôn nhanh</h3><strong>{data.student_question}</strong><hr /><p>Đáp án: {data.student_answer}</p></section>
+      <button className="recognize-again" type="button" onClick={reset}><RefreshCw size={20} /> Nhận diện ảnh khác</button>
+    </article>}
   </div>;
 }

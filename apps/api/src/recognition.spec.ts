@@ -1,4 +1,4 @@
-import { detectImageMime, riverClassificationPrediction } from './recognition';
+import { detectImageMime } from './recognition';
 
 describe('species recognition image validation', () => {
   it('detects JPEG, PNG and WebP by magic bytes', () => {
@@ -7,13 +7,4 @@ describe('species recognition image validation', () => {
     expect(detectImageMime(Buffer.from('RIFF0000WEBP'))).toBe('image/webp');
   });
   it('rejects unsupported content', () => expect(detectImageMime(Buffer.from('not an image'))).toBeNull());
-});
-
-describe('River AI classification mapping', () => {
-  it('maps the requested response format', () => {
-    expect(riverClassificationPrediction('Cáo đỏ - Vulpes vulpes - Bộ lông đỏ nâu. Đuôi dài và rậm.')).toMatchObject({
-      commonName: 'Cáo đỏ', scientificName: 'Vulpes vulpes', certainty: 'UNKNOWN',
-      identifyingFeatures: ['Bộ lông đỏ nâu. Đuôi dài và rậm.'],
-    });
-  });
 });

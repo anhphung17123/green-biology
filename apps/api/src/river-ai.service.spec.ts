@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { ANIMAL_MODEL, BIOLOGY_MODEL, BIOLOGY_SYSTEM_PROMPT, extractRiverContent, mapRiverError, RiverAiService, riverChatCompletionsUrl } from './river-ai.service';
+import { BIOLOGY_MODEL, BIOLOGY_SYSTEM_PROMPT, extractRiverContent, mapRiverError, RiverAiService, riverChatCompletionsUrl } from './river-ai.service';
 
 describe('River response and endpoint handling', () => {
   it.each([
@@ -58,19 +58,4 @@ describe('RiverAiService', () => {
     expect(body.messages[0]).toEqual({ role: 'system', content: BIOLOGY_SYSTEM_PROMPT });
   });
 
-  it('sends a validated image as an OpenAI-compatible data URL', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({ choices: [{ message: { content: 'Mèo - Felis catus - Đặc điểm.' } }] }),
-    });
-    await new RiverAiService().classifyAnimal(Buffer.from('image'), 'image/png');
-    const options = (global.fetch as jest.Mock).mock.calls[0][1];
-    const body = JSON.parse(options.body);
-    expect(body.model).toBe(ANIMAL_MODEL);
-    expect(body.messages[0].content[1]).toEqual({
-      type: 'image_url',
-      image_url: { url: `data:image/png;base64,${Buffer.from('image').toString('base64')}` },
-    });
-  });
 });

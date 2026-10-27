@@ -16,6 +16,7 @@ import { AdminController } from "./admin";
 import { StorageService } from "./storage";
 import { RiverAiController } from "./river-ai";
 import { RiverAiService } from "./river-ai.service";
+import { SpeciesApiService } from "./species-api.service";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -48,6 +49,7 @@ import { RiverAiService } from "./river-ai.service";
     DocumentWorker,
     RolesGuard,
     RiverAiService,
+    SpeciesApiService,
   ],
 })
 export class AppModule {}

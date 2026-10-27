@@ -26,19 +26,22 @@ Chạy từng dòng lệnh riêng. Những dòng bắt đầu bằng `#` là ch�
 
 ## AI
 
-Chatbot và nhận diện ảnh động vật đều sử dụng River AI qua API tương thích OpenAI. Thêm khóa chỉ vào `.env` phía backend:
+Chatbot sử dụng River AI qua API tương thích OpenAI; nhận diện ảnh sử dụng Species API. Thêm thông tin xác thực chỉ vào `.env` phía backend:
 
 ```bash
 RIVER_API_KEY="..."
 RIVER_BASE_URL="https://api.river.ai/v1"
 RIVER_TIMEOUT_MS=60000
+SPECIES_API_URL="https://trituexanhhocduong.4devvn.com/api/identify-species.php"
+SPECIES_API_PHPSESSID="..."
+SPECIES_API_TIMEOUT_MS=60000
 ```
 
-Không đặt khóa trong biến `VITE_*`. Quyền truy cập model và hạn mức phụ thuộc tài khoản River của người vận hành. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài Sinh học, đa dạng sinh học, bảo tồn và môi trường trước khi gọi River AI.
+Không đặt khóa hoặc cookie phiên trong biến `VITE_*`. Quyền truy cập model và hạn mức phụ thuộc tài khoản River; phiên Species API có thể hết hạn và cần được cập nhật. Chatbot không cần tài liệu giáo viên để trả lời kiến thức Sinh học. Backend từ chối câu hỏi ngoài phạm vi trước khi gọi River AI.
 
-Website gọi `POST /api/biology-chat/ask` và `POST /api/species-recognition`; các alias `POST /api/chat-biology` và `POST /api/classify-animal` cũng có sẵn. Ảnh được kiểm tra MIME/chữ ký, giới hạn bởi `MAX_UPLOAD_BYTES`, chuyển thành data URL trong RAM để gửi đến model thị giác và không được ghi xuống đĩa. Backend chấp nhận `RIVER_BASE_URL` có hoặc không có hậu tố `/v1` và tự tạo đúng đường dẫn `/v1/chat/completions`.
+Website gọi `POST /api/biology-chat/ask` và `POST /api/species-recognition`; các alias `POST /api/chat-biology` và `POST /api/classify-animal` cũng có sẵn. Ảnh được kiểm tra MIME/chữ ký, giới hạn bởi `MAX_UPLOAD_BYTES`, gửi multipart từ backend tới Species API và không được ghi xuống đĩa. Backend chấp nhận `RIVER_BASE_URL` có hoặc không có hậu tố `/v1` cho chatbot.
 
-Nhận diện động vật xử lý ảnh tạm thời trong RAM và gửi tới model thị giác River AI; ảnh không được ghi vào thư mục upload hoặc database. Route của website kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP trước khi gửi ảnh. Vì model không trả về độ tin cậy đã hiệu chuẩn, giao diện không hiển thị phần trăm tin cậy giả.
+Nhận diện động vật xử lý ảnh tạm thời trong RAM và gửi tới Species API; ảnh không được ghi vào thư mục upload hoặc database. Route của website kiểm tra JWT `STUDENT`, giới hạn 5 MB, MIME và chữ ký nhị phân JPEG/PNG/WebP. Giao diện hiển thị tên loài, mức nguy cấp, độ tin cậy, đặc điểm, sinh cảnh, hướng dẫn bảo tồn, fun facts và câu hỏi ôn tập từ response đã được backend kiểm tra.
 
 Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất và chia đoạn văn bản để quản lý nội dung, không tạo embedding. Chatbot không phụ thuộc vào kho tài liệu. Nhận diện ảnh lưu lịch sử và đối chiếu tên khoa học dự đoán với bảng `Species`.
 
@@ -52,7 +55,7 @@ Kho tài liệu hỗ trợ PDF, DOCX, TXT hoặc Markdown; worker trích xuất 
 
 ## Trạng thái chức năng
 
-Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker trích xuất/chia đoạn tài liệu; chatbot River AI có kiểm tra phạm vi Sinh học ở backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện động vật bằng model thị giác River AI; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E. UI luôn báo lỗi trung thực nếu dịch vụ AI chưa được cấu hình hoặc tạm thời không khả dụng.
+Đã có: đăng nhập và route theo vai trò; upload ảnh báo cáo/minh chứng; upload và worker trích xuất/chia đoạn tài liệu; chatbot River AI có kiểm tra phạm vi Sinh học ở backend; AQI US AQI từ Open‑Meteo/CAMS với attribution; nhận diện động vật bằng Species API; dashboard giáo viên CRUD; hai game lấy câu hỏi từ database; chấm điểm server-side; leaderboard; và Playwright E2E.
 
 ## Kiểm tra
 

@@ -8,13 +8,9 @@ import {
 } from '@nestjs/common';
 
 export const BIOLOGY_MODEL = 'deepseek-ai/DeepSeek-V4.1-Flash';
-export const ANIMAL_MODEL = 'nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4';
 
 export const BIOLOGY_SYSTEM_PROMPT =
   'Bạn là một chuyên gia giáo dục môn Sinh học cấp ba tại Việt Nam. Hãy trả lời câu hỏi của học sinh một cách chính xác, khoa học, dễ hiểu và luôn dùng tiếng Việt.';
-
-export const ANIMAL_PROMPT =
-  'Hãy phân tích hình ảnh này và cho biết đây là loài động vật gì. Trả về kết quả chính xác theo định dạng: Tên tiếng Việt - Tên khoa học (Nếu có) - Tóm tắt ngắn gọn đặc điểm nhận diện chính trong 2 câu.';
 
 type RiverError = { status?: number; name?: string };
 type MessageContent = string | Array<{ type?: string; text?: string }>;
@@ -67,22 +63,6 @@ export class RiverAiService {
         { role: 'system', content: BIOLOGY_SYSTEM_PROMPT },
         { role: 'user', content: message },
       ],
-    });
-  }
-
-  async classifyAnimal(image: Buffer, mimeType: string): Promise<string> {
-    const dataUrl = `data:${mimeType};base64,${image.toString('base64')}`;
-    return this.createCompletion({
-      model: ANIMAL_MODEL,
-      temperature: 0.2,
-      max_tokens: 512,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: ANIMAL_PROMPT },
-          { type: 'image_url', image_url: { url: dataUrl } },
-        ],
-      }],
     });
   }
 

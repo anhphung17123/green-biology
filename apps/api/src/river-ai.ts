@@ -4,6 +4,7 @@ import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { memoryStorage } from 'multer';
 import { detectImageMime } from './recognition';
 import { RiverAiService } from './river-ai.service';
+import { SpeciesApiService } from './species-api.service';
 
 class BiologyChatDto {
   @IsString()
@@ -16,7 +17,7 @@ const supportedImageMimes = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Controller()
 export class RiverAiController {
-  constructor(private readonly riverAi: RiverAiService) {}
+  constructor(private readonly riverAi: RiverAiService, private readonly speciesApi: SpeciesApiService) {}
 
   @Post('chat-biology')
   async chatBiology(@Body() dto: BiologyChatDto) {
@@ -38,7 +39,6 @@ export class RiverAiController {
     if (!detectedMime || detectedMime !== file.mimetype) {
       throw new BadRequestException('Nội dung tệp không khớp định dạng ảnh JPEG, PNG hoặc WebP.');
     }
-    const classification = await this.riverAi.classifyAnimal(file.buffer, detectedMime);
-    return { classification };
+    return this.speciesApi.identify(file.buffer, detectedMime, file.originalname);
   }
 }
