@@ -1397,21 +1397,23 @@ header {
   height: 560px;
   border-radius: 14px;
 }
-.aqi-marker-shell {
-  background: none;
-  border: 0;
-}
-.aqi-marker {
+.google-aqi-marker {
   display: grid;
   place-items: center;
   width: 42px;
   height: 42px;
+  padding: 0;
   border: 3px solid #fff;
   border-radius: 50%;
   box-shadow: 0 3px 13px #173a3260;
   color: #fff;
   font-size: 13px;
   font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.google-aqi-marker:hover {
+  transform: scale(1.1);
 }
 .aqi-popup {
   display: grid;
@@ -1481,6 +1483,69 @@ header {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.report-location-picker {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #d9e4dc;
+  border-radius: 14px;
+  background: #f7faf8;
+}
+.report-location-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.report-location-heading > div {
+  display: grid;
+  gap: 4px;
+}
+.report-location-heading strong {
+  color: #173a32;
+  font-size: 14px;
+}
+.report-location-heading span {
+  color: #71837d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.report-location-heading .btn {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+}
+.report-map {
+  width: 100%;
+  height: 360px;
+  border: 1px solid #d9e4dc;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.report-location-picker input[readonly] {
+  background: #fff;
+  color: #536b62;
+}
+@media (max-width: 600px) {
+  .report-form {
+    padding: 18px;
+  }
+  .report-location-picker {
+    padding: 11px;
+  }
+  .report-location-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .report-location-heading .btn {
+    justify-content: center;
+  }
+  .report-map {
+    height: 300px;
+  }
+  .coord-pair {
+    grid-template-columns: 1fr;
+  }
 }
 .file-label {
   border: 1px dashed #afcbb7;

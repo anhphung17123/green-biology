@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   MapPin,
@@ -7,48 +7,63 @@ import {
   Trees,
   X,
 } from "lucide-react";
-import { divIcon } from "leaflet";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { protectedAreas, type ProtectedArea } from "../data/protected_area";
-
-const markerIcon = divIcon({
-  className: "custom-park-marker",
-  html: '<svg viewBox="0 0 40 50" width="40" height="50" aria-hidden="true"><path d="M20 1C9.5 1 1 9.5 1 20c0 14.3 19 29 19 29s19-14.7 19-29C39 9.5 30.5 1 20 1Z" fill="#167b55" stroke="#fff" stroke-width="3"/><circle cx="20" cy="20" r="7" fill="#fff"/></svg>',
-  iconSize: [40, 50],
-  iconAnchor: [20, 49],
-  popupAnchor: [0, -38],
-});
+import { googleMapId, loadGoogleMaps } from "../google-maps";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=900&auto=format&fit=crop";
 
-function ParkMarker({
-  area,
-  onDetails,
-}: {
-  area: ProtectedArea;
-  onDetails: (area: ProtectedArea) => void;
-}) {
-  const map = useMap();
-  return (
-    <Marker
-      position={[area.location.latitude, area.location.longitude]}
-      icon={markerIcon}
-      eventHandlers={{
-        click: () => {
-          map.once("moveend", () => onDetails(area));
-          map.flyTo([area.location.latitude, area.location.longitude], 10, {
-            duration: 1,
-          });
-        },
-      }}
-    />
-  );
-}
-
 export default function Explore() {
   const [query, setQuery] = useState("");
   const [detailArea, setDetailArea] = useState<ProtectedArea>();
+  const [mapError, setMapError] = useState("");
+  const [mapReady, setMapReady] = useState(false);
+  const mapElement = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const markerClass = useRef<any>(null);
+  const markers = useRef<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadGoogleMaps()
+      .then(async (google) => {
+        const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
+          google.maps.importLibrary("maps"),
+          google.maps.importLibrary("marker"),
+        ]);
+        if (cancelled || !mapElement.current) return;
+        mapInstance.current = new Map(mapElement.current, {
+          center: { lat: 16.0544, lng: 108.2022 },
+          zoom: 10,
+          mapId: googleMapId(),
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+        markerClass.current = AdvancedMarkerElement;
+        setMapReady(true);
+        setMapError("");
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          const reason = error instanceof Error ? ` (${error.message})` : "";
+          setMapError(
+            `Không thể tải Google Maps${reason}. Hãy kiểm tra giới hạn website của API key.`,
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      markers.current.forEach((marker) => {
+        marker.map = null;
+      });
+      markers.current = [];
+      mapInstance.current = null;
+      markerClass.current = null;
+    };
+  }, []);
   useEffect(() => {
     if (!detailArea) return;
     const close = (event: KeyboardEvent) => {
@@ -70,6 +85,40 @@ export default function Explore() {
     );
   }, [query]);
 
+  useEffect(() => {
+    const map = mapInstance.current;
+    const AdvancedMarkerElement = markerClass.current;
+    if (!map || !AdvancedMarkerElement) return;
+
+    markers.current.forEach((marker) => {
+      marker.map = null;
+    });
+    markers.current = filtered.map((area) => {
+      const content = document.createElement("button");
+      content.className = "google-park-marker";
+      content.type = "button";
+      content.title = area.name;
+      content.setAttribute("aria-label", `Xem ${area.name}`);
+      content.innerHTML =
+        '<svg viewBox="0 0 40 50" aria-hidden="true"><path d="M20 1C9.5 1 1 9.5 1 20c0 14.3 19 29 19 29s19-14.7 19-29C39 9.5 30.5 1 20 1Z"/><circle cx="20" cy="20" r="7"/></svg>';
+      const marker = new AdvancedMarkerElement({
+        map,
+        position: { lat: area.location.latitude, lng: area.location.longitude },
+        title: area.name,
+        content,
+      });
+      marker.addListener("click", () => {
+        map.panTo({
+          lat: area.location.latitude,
+          lng: area.location.longitude,
+        });
+        map.setZoom(10);
+        setDetailArea(area);
+      });
+      return marker;
+    });
+  }, [filtered, mapReady]);
+
   return (
     <div className="explore-page map-screen">
       <div className="map-toolbar">
@@ -84,22 +133,16 @@ export default function Explore() {
         </label>
         <span>{filtered.length} địa điểm</span>
       </div>
-      <MapContainer
+      <div
+        ref={mapElement}
         className="map-screen-map"
-        center={[16.0544, 108.2022]}
-        zoom={12}
-        minZoom={4}
-        scrollWheelZoom
-        zoomControl
-      >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {filtered.map((area) => (
-          <ParkMarker key={area.id} area={area} onDetails={setDetailArea} />
-        ))}
-      </MapContainer>
+        aria-label="Bản đồ các khu bảo tồn"
+      />
+      {mapError && (
+        <div className="map-error" role="alert">
+          {mapError}
+        </div>
+      )}
       {detailArea && (
         <div
           className="area-modal-backdrop"

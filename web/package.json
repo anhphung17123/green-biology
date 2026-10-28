@@ -2,7 +2,9 @@
   "name": "@green-biology/web",
   "private": true,
   "version": "0.1.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,11 +15,9 @@
   "dependencies": {
     "@tanstack/react-query": "^5.66.9",
     "katex": "^0.19.1",
-    "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-leaflet": "^4.2.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.1.5",
     "rehype-katex": "^7.0.1",
@@ -26,7 +26,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
-    "@types/leaflet": "^1.9.16",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

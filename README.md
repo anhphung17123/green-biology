@@ -43,6 +43,8 @@ Sao chép `web/.env.example` thành `web/.env` và điền:
 ```env
 VITE_GOOGLE_SCRIPT_URL="https://script.google.com/macros/s/DEPLOYMENT_ID/exec"
 VITE_WAQI_MAP_KEY="..."
+VITE_GOOGLE_MAPS_API_KEY="..."
+VITE_GOOGLE_MAPS_MAP_ID="..."
 ```
 
 Các biến `VITE_*` được đóng gói công khai vào JavaScript phía trình duyệt.
