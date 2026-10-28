@@ -979,6 +979,26 @@ header {
 .google-park-marker:hover {
   transform: translateY(-2px) scale(1.06);
 }
+.pollution-map-marker {
+  display:grid;
+  place-items:center;
+  width:38px;
+  height:38px;
+  padding:0;
+  border:3px solid #fff;
+  border-radius:50%;
+  background:#d8493e;
+  box-shadow:0 5px 15px #5b18184d;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+}
+.report-album { max-width:850px; }
+.report-album-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:18px; }
+.report-album-grid a { position:relative; overflow:hidden; border-radius:12px; background:#eef3ef; color:#fff; }
+.report-album-grid img { width:100%; height:180px; object-fit:cover; display:block; }
+.report-album-grid span { position:absolute; right:0; bottom:0; left:0; padding:24px 10px 9px; background:linear-gradient(transparent,#102b22dd); font-size:12px; font-weight:700; }
 .map-error {
   position: absolute;
   z-index: 1001;

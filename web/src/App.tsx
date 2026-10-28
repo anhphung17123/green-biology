@@ -6,6 +6,7 @@ import {
   Camera,
   CloudSun,
   Flag,
+  FolderClock,
   Gamepad2,
   House,
   LayoutDashboard,
@@ -32,6 +33,7 @@ import Magazine from "./pages/Magazine";
 import Recognition from "./pages/Recognition";
 import Reports from "./pages/Reports";
 import Teacher from "./pages/Teacher";
+import MyActivities from "./pages/MyActivities";
 
 type NavigationItem = {
   to: string;
@@ -109,6 +111,12 @@ export default function App() {
                   <span>Quản lý nội dung</span>
                 </NavLink>
               </nav>
+            </div>
+          )}
+          {user?.role === "STUDENT" && (
+            <div className="nav-group teacher-navigation">
+              <div className="nav-label">Cá nhân</div>
+              <nav><NavLink to="/my-activities" onClick={() => setOpen(false)}><FolderClock size={19}/><span>Hoạt động của tôi</span></NavLink></nav>
             </div>
           )}
           {navigationGroups.map((group) => {
@@ -204,6 +212,7 @@ export default function App() {
           />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/magazine" element={<Magazine />} />
+          <Route path="/my-activities" element={<Protected><MyActivities /></Protected>} />
           <Route
             path="/teacher"
             element={

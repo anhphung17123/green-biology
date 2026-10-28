@@ -36,6 +36,10 @@ Trong sheet `Config`, điền giá trị cho các key:
 
 6. Deploy Apps Script dạng Web app, quyền truy cập `Anyone`, rồi lấy URL `/exec`.
 
+Sau khi cập nhật Apps Script, chạy lại hàm `setup()` để tạo các sheet
+`Reports`, `Challenges`, `ChallengeProofs`, sau đó tạo deployment version mới.
+Ứng dụng chỉ lưu URL ảnh công khai trong Google Sheet, không tải hoặc lưu file ảnh.
+
 ## Biến môi trường web
 
 Sao chép `web/.env.example` thành `web/.env` và điền:
