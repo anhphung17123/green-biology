@@ -1,14 +1,18 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { LocateFixed, MapPin } from "lucide-react";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
+import { createPollutionReport } from "../api";
+import { useAuth } from "../auth";
 
 type Coordinates = { lat: number; lng: number };
 const fallbackLocation: Coordinates = { lat: 16.0544, lng: 108.2022 };
 
 export default function Reports() {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("WASTE");
+  const [imageLinks, setImageLinks] = useState("");
   const [location, setLocation] = useState(fallbackLocation);
   const [locationMessage, setLocationMessage] = useState(
     "Đang xác định vị trí của bạn…",
@@ -20,6 +24,7 @@ export default function Reports() {
   const mapInstance = useRef<any>(null);
   const locationMarker = useRef<any>(null);
   const markerClass = useRef<any>(null);
+
 
   function locateStudent() {
     if (!navigator.geolocation) {
@@ -119,22 +124,24 @@ export default function Reports() {
     setBusy(true);
     setMessage("");
     try {
-      const reports = JSON.parse(
-        localStorage.getItem("green_mock_reports") || "[]",
-      );
-      reports.push({
-        id: crypto.randomUUID(),
+      if (!user) throw new Error("Bạn cần đăng nhập để gửi báo cáo");
+      const imageUrls = imageLinks
+        .split(/\n|,/)
+        .map((link) => link.trim())
+        .filter(Boolean);
+      await createPollutionReport({
         title,
         description,
         incidentType: type,
         latitude: location.lat,
         longitude: location.lng,
-        createdAt: new Date().toISOString(),
+        imageUrls,
+        studentUsername: user.username,
       });
-      localStorage.setItem("green_mock_reports", JSON.stringify(reports));
-      setMessage("Đã lưu báo cáo minh họa trên trình duyệt.");
+      setMessage("Đã gửi báo cáo. Giáo viên sẽ duyệt trước khi hiển thị trên bản đồ.");
       setTitle("");
       setDescription("");
+      setImageLinks("");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Không thể gửi báo cáo",
@@ -150,7 +157,7 @@ export default function Reports() {
         <div>
           <span className="kicker">HÀNH ĐỘNG CỘNG ĐỒNG</span>
           <h1>Báo cáo vấn đề môi trường</h1>
-          <p>Dữ liệu minh họa chỉ được lưu trên trình duyệt hiện tại.</p>
+          <p>Gửi vị trí và link ảnh để giáo viên xác minh.</p>
         </div>
       </div>
       <form className="report-form" onSubmit={submit}>
@@ -183,6 +190,16 @@ export default function Reports() {
             </option>
             <option value="OTHER">Khác</option>
           </select>
+        </label>
+        <label>
+          Link ảnh minh chứng
+          <textarea
+            className="report-image-links"
+            value={imageLinks}
+            onChange={(e) => setImageLinks(e.target.value)}
+            required
+            placeholder="Dán link ảnh công khai, mỗi link một dòng (tối đa 6 ảnh)"
+          />
         </label>
         <section className="report-location-picker">
           <div className="report-location-heading">

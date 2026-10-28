@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { protectedAreas, type ProtectedArea } from "../data/protected_area";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
+import { listPollutionReports, type PollutionReport } from "../api";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=900&auto=format&fit=crop";
@@ -18,10 +19,17 @@ export default function Explore() {
   const [detailArea, setDetailArea] = useState<ProtectedArea>();
   const [mapError, setMapError] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const [pollutionReports, setPollutionReports] = useState<PollutionReport[]>([]);
+  const [reportAlbum, setReportAlbum] = useState<PollutionReport[]>();
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerClass = useRef<any>(null);
   const markers = useRef<any[]>([]);
+  const reportMarkers = useRef<any[]>([]);
+
+  useEffect(() => {
+    listPollutionReports().then((items) => setPollutionReports(items.filter((item) => item.status === "APPROVED"))).catch(() => setPollutionReports([]));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +68,8 @@ export default function Explore() {
         marker.map = null;
       });
       markers.current = [];
+      reportMarkers.current.forEach((marker) => { marker.map = null; });
+      reportMarkers.current = [];
       mapInstance.current = null;
       markerClass.current = null;
     };
@@ -119,6 +129,29 @@ export default function Explore() {
     });
   }, [filtered, mapReady]);
 
+  useEffect(() => {
+    const map = mapInstance.current;
+    const AdvancedMarkerElement = markerClass.current;
+    if (!map || !AdvancedMarkerElement) return;
+    reportMarkers.current.forEach((marker) => { marker.map = null; });
+    const groups = pollutionReports.reduce<Record<string, PollutionReport[]>>((result, report) => {
+      const key = `${Number(report.latitude).toFixed(5)},${Number(report.longitude).toFixed(5)}`;
+      (result[key] ||= []).push(report);
+      return result;
+    }, {});
+    reportMarkers.current = Object.values(groups).map((album) => {
+      const first = album[0];
+      const content = document.createElement("button");
+      content.className = "pollution-map-marker";
+      content.type = "button";
+      content.textContent = String(album.length);
+      content.title = `${album.length} báo cáo ô nhiễm`;
+      const marker = new AdvancedMarkerElement({ map, position: { lat: Number(first.latitude), lng: Number(first.longitude) }, content, title: content.title });
+      marker.addListener("click", () => setReportAlbum(album));
+      return marker;
+    });
+  }, [pollutionReports, mapReady]);
+
   return (
     <div className="explore-page map-screen">
       <div className="map-toolbar">
@@ -141,6 +174,18 @@ export default function Explore() {
       {mapError && (
         <div className="map-error" role="alert">
           {mapError}
+        </div>
+      )}
+      {reportAlbum && (
+        <div className="area-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setReportAlbum(undefined); }}>
+          <article className="area-modal report-album" role="dialog" aria-modal="true" aria-labelledby="report-album-title">
+            <button className="area-modal-close" type="button" aria-label="Đóng album" onClick={() => setReportAlbum(undefined)}><X /></button>
+            <div className="area-modal-body">
+              <h3 id="report-album-title">Album báo cáo ô nhiễm</h3>
+              <p>{reportAlbum.length} báo cáo đã được giáo viên xác minh tại địa điểm này.</p>
+              <div className="report-album-grid">{reportAlbum.flatMap((report) => report.imageUrls.map((url, index) => <a key={`${report.id}-${index}`} href={url} target="_blank" rel="noreferrer"><img src={url} alt={report.title}/><span>{report.title}</span></a>))}</div>
+            </div>
+          </article>
         </div>
       )}
       {detailArea && (
