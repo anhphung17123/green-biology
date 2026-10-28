@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
-import 'leaflet/dist/leaflet.css';
 import './styles.css';
 import './refresh.css';
 import App from './App';
