@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  ExternalLink,
   MapPin,
   Search,
   ShieldCheck,
@@ -13,6 +14,20 @@ import { listPollutionReports, type PollutionReport } from "../api";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=900&auto=format&fit=crop";
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && window.matchMedia("(max-width: 900px)").matches);
+}
+
+function openAreaInGoogleMaps(area: ProtectedArea) {
+  if (isMobileDevice()) {
+    window.location.assign(area.mobileStreetViewUrl ?? area.googleMapsUrl);
+    return;
+  }
+
+  window.open(area.googleMapsUrl, "_blank", "noopener,noreferrer");
+}
 
 export default function Explore() {
   const [query, setQuery] = useState("");
@@ -238,6 +253,16 @@ export default function Explore() {
               <p className="area-modal-description">
                 {detailArea.details.description}
               </p>
+              <button
+                className="area-modal-learn-more"
+                type="button"
+                onClick={() => openAreaInGoogleMaps(detailArea)}
+                aria-label={`Tìm hiểu thêm về ${detailArea.name} trên Google Maps`}
+              >
+                <MapPin size={19} />
+                Tìm hiểu thêm
+                <ExternalLink size={17} />
+              </button>
               <div className="area-modal-stats">
                 <div>
                   <CalendarDays />
