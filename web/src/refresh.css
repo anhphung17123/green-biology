@@ -1196,6 +1196,36 @@ header {
   font-size: 15px;
   line-height: 1.75;
 }
+.area-modal-learn-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 18px;
+  padding: 12px 17px;
+  border: 0;
+  border-radius: 12px;
+  background: #187754;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 8px 20px #1877542e;
+  cursor: pointer;
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+.area-modal-learn-more svg:last-child {
+  margin-left: 2px;
+  opacity: 0.82;
+}
+.area-modal-learn-more:hover {
+  transform: translateY(-1px);
+  background: #126344;
+}
+.area-modal-learn-more:focus-visible {
+  outline: 3px solid #66c9a0;
+  outline-offset: 3px;
+}
 .area-modal-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1313,6 +1343,9 @@ header {
   }
   .area-modal-description {
     font-size: 13px;
+  }
+  .area-modal-learn-more {
+    width: 100%;
   }
   .area-modal-stats {
     grid-template-columns: 1fr;
