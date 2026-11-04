@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CloudSun, MapPin } from "lucide-react";
+import { Activity, CalendarClock, CloudSun, MapPin, Wind, X } from "lucide-react";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
 
 type AirQuality = {
@@ -83,6 +83,7 @@ export default function AirQualityPage() {
     [active, setActive] = useState(initial);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
+  const [selectedStation, setSelectedStation] = useState<Station>();
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerClass = useRef<any>(null);
@@ -175,11 +176,21 @@ export default function AirQualityPage() {
         const selected = { lat: station.latitude, lng: station.longitude };
         setCoords(selected);
         setActive(selected);
-        map.panTo(selected);
+        setSelectedStation(station);
+        map.moveCamera({ center: selected, zoom: 16 });
       });
       return marker;
     });
   }, [stationList, mapReady]);
+
+  useEffect(() => {
+    if (!selectedStation) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedStation(undefined);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [selectedStation]);
   const value = current.data?.us_aqi ?? 0,
     level =
       value <= 50
@@ -258,8 +269,66 @@ export default function AirQualityPage() {
           className="aqi-map"
           aria-label="Bản đồ trạm quan trắc không khí"
         />
+        <section className="aqi-legend" aria-labelledby="aqi-legend-title">
+          <div className="aqi-legend-heading">
+            <div>
+              <h3 id="aqi-legend-title">Chú giải chỉ số AQI</h3>
+              <p>Màu sắc trên bản đồ thể hiện mức độ ảnh hưởng của chất lượng không khí.</p>
+            </div>
+            <span>US AQI</span>
+          </div>
+          <div className="aqi-legend-list">
+            {[
+              { range: "0–50", label: "Tốt", tone: "#35a853" },
+              { range: "51–100", label: "Trung bình", tone: "#d8a719" },
+              { range: "101–150", label: "Không tốt cho nhóm nhạy cảm", tone: "#e87825" },
+              { range: "151–200", label: "Không tốt", tone: "#d6403a" },
+              { range: "201–300", label: "Rất không tốt", tone: "#824b96" },
+              { range: "301+", label: "Nguy hại", tone: "#7e2638" },
+            ].map((item) => (
+              <div className="aqi-legend-item" key={item.range}>
+                <span className="aqi-legend-color" style={{ backgroundColor: item.tone }} aria-hidden="true" />
+                <span><strong>{item.range}</strong><small>{item.label}</small></span>
+              </div>
+            ))}
+          </div>
+          <p className="aqi-legend-note"><span aria-hidden="true" /> Dấu màu xám hoặc ký hiệu “–” nghĩa là trạm chưa có dữ liệu.</p>
+        </section>
         <small>Nguồn trạm: World Air Quality Index Project (WAQI).</small>
       </section>
+      {selectedStation && (
+        <div
+          className="aqi-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedStation(undefined);
+          }}
+        >
+          <article className="aqi-detail-modal" role="dialog" aria-modal="true" aria-labelledby="aqi-detail-title">
+            <button className="aqi-detail-close" type="button" aria-label="Đóng thông tin trạm" onClick={() => setSelectedStation(undefined)}>
+              <X size={20} />
+            </button>
+            <div className="aqi-detail-header" style={{ backgroundColor: color(selectedStation.aqi) }}>
+              <span>Chỉ số AQI</span>
+              <strong>{selectedStation.aqi ?? "–"}</strong>
+              <small>{selectedStation.aqi === null ? "Chưa có dữ liệu" : category(selectedStation.aqi)}</small>
+            </div>
+            <div className="aqi-detail-body">
+              <span className="kicker">TRẠM QUAN TRẮC</span>
+              <h2 id="aqi-detail-title">{selectedStation.name}</h2>
+              <div className="aqi-detail-location"><MapPin size={17} />{selectedStation.latitude.toFixed(5)}, {selectedStation.longitude.toFixed(5)}</div>
+              <div className="aqi-detail-grid">
+                <div><Activity /><span>AQI<strong>{selectedStation.aqi ?? "–"}</strong></span></div>
+                <div><Wind /><span>PM2.5<strong>{current.isFetching ? "…" : current.data ? `${current.data.pm2_5} µg/m³` : "Không có"}</strong></span></div>
+                <div><CloudSun /><span>PM10<strong>{current.isFetching ? "…" : current.data ? `${current.data.pm10} µg/m³` : "Không có"}</strong></span></div>
+                <div><CalendarClock /><span>Cập nhật<strong>{selectedStation.measuredAt ? new Date(selectedStation.measuredAt).toLocaleString("vi-VN") : "Không rõ"}</strong></span></div>
+              </div>
+              {current.isError && <p className="aqi-detail-warning">Không thể tải thêm dữ liệu bụi mịn tại vị trí này.</p>}
+              <small className="aqi-detail-source">Nguồn: WAQI và Open-Meteo</small>
+            </div>
+          </article>
+        </div>
+      )}
     </div>
   );
 }

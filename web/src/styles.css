@@ -1400,6 +1400,93 @@ header {
   height: 560px;
   border-radius: 14px;
 }
+.aqi-legend {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #e0e8e2;
+  border-radius: 14px;
+  background: #f8fbf9;
+}
+.aqi-legend-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.aqi-legend-heading h3,
+.aqi-legend-heading p {
+  margin: 0;
+}
+.aqi-legend-heading h3 {
+  color: #25463b;
+  font-size: 15px;
+}
+.aqi-legend-heading p {
+  margin-top: 3px;
+  color: #71837d;
+  font-size: 11px;
+}
+.aqi-legend-heading > span {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e7f4ec;
+  color: #167b55;
+  font-size: 10px;
+  font-weight: 900;
+}
+.aqi-legend-list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.aqi-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 10px;
+  background: #fff;
+}
+.aqi-legend-color {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 34px;
+  border-radius: 6px;
+}
+.aqi-legend-item strong,
+.aqi-legend-item small {
+  display: block;
+}
+.aqi-legend-item strong {
+  color: #29483e;
+  font-size: 11px;
+}
+.aqi-legend-item small {
+  margin-top: 2px;
+  color: #71837d;
+  font-size: 9px;
+  line-height: 1.25;
+}
+.aqi-legend-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 11px 0 0;
+  color: #71837d;
+  font-size: 10px;
+}
+.aqi-legend-note > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #75827d;
+}
+@media (max-width: 1100px) {
+  .aqi-legend-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .google-aqi-marker {
   display: grid;
   place-items: center;
@@ -1418,6 +1505,66 @@ header {
 .google-aqi-marker:hover {
   transform: scale(1.1);
 }
+.aqi-modal-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #102a226b;
+  backdrop-filter: blur(5px);
+}
+.aqi-detail-modal {
+  position: relative;
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  width: min(680px, 100%);
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 24px 70px #102a2259;
+}
+.aqi-detail-close {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #dce7e0;
+  border-radius: 50%;
+  background: #fff;
+  color: #48635a;
+  cursor: pointer;
+}
+.aqi-detail-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 30px 20px;
+  color: #fff;
+  text-align: center;
+}
+.aqi-detail-header > span { font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.aqi-detail-header > strong { margin: 8px 0 2px; font-size: 58px; line-height: 1; }
+.aqi-detail-header > small { font-weight: 700; line-height: 1.4; }
+.aqi-detail-body { padding: 34px 34px 26px; }
+.aqi-detail-body h2 { margin: 5px 44px 7px 0; font: 700 26px "Fraunces"; line-height: 1.2; }
+.aqi-detail-location { display: flex; align-items: center; gap: 6px; color: #71837d; font-size: 12px; }
+.aqi-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.aqi-detail-grid > div { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 13px; border-radius: 12px; background: #f3f8f5; color: #167b55; }
+.aqi-detail-grid svg { flex: 0 0 auto; width: 19px; }
+.aqi-detail-grid span, .aqi-detail-grid strong { display: block; }
+.aqi-detail-grid span { min-width: 0; color: #71837d; font-size: 10px; }
+.aqi-detail-grid strong { margin-top: 3px; overflow: hidden; color: #25463b; font-size: 12px; text-overflow: ellipsis; }
+.aqi-detail-warning { margin: 14px 0 0; color: #a4382e; font-size: 12px; }
+.aqi-detail-source { display: block; margin-top: 18px; color: #8a9994; }
 .aqi-popup {
   display: grid;
   gap: 7px;
@@ -1454,6 +1601,13 @@ header {
   .aqi-map-heading > span {
     padding: 6px 9px;
   }
+  .aqi-legend-list { grid-template-columns: 1fr 1fr; }
+  .aqi-legend-heading p { display: none; }
+  .aqi-modal-backdrop { padding: 14px; }
+  .aqi-detail-modal { display: block; max-height: calc(100dvh - 28px); overflow-y: auto; }
+  .aqi-detail-header { min-height: 150px; }
+  .aqi-detail-body { padding: 24px 20px; }
+  .aqi-detail-grid { grid-template-columns: 1fr; }
 }
 .report-form {
   max-width: 760px;
