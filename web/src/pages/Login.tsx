@@ -34,12 +34,99 @@ export default function Login() {
       else await login(username, password);
       navigate("/");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Không thể xử lý tài khoản");
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Không thể xử lý tài khoản",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   const registering = mode === "register";
-  return <div className="login-page"><form className="login-card" onSubmit={submit}><div className="brand login-brand"><span><Leaf/></span><div>Green Biology<small>Khám phá sự sống</small></div></div><h1>{registering?"Tạo tài khoản":"Chào bạn trở lại"}</h1><p>{registering?"Tài khoản học sinh sẽ được lưu vào Google Sheets.":"Đăng nhập bằng tài khoản trong Google Sheets."}</p>{registering&&<label>Họ và tên<input value={name} onChange={event=>setName(event.target.value)} required minLength={2} maxLength={80} autoComplete="name"/></label>}<label>Tên đăng nhập<input value={username} onChange={event=>setUsername(event.target.value.toLowerCase())} required minLength={3} maxLength={40} pattern="[a-z0-9._-]+" autoComplete="username"/></label><label>Mật khẩu<input type="password" value={password} onChange={event=>setPassword(event.target.value)} required minLength={registering?6:1} autoComplete={registering?"new-password":"current-password"}/></label>{registering&&<label>Nhập lại mật khẩu<input type="password" value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} required minLength={6} autoComplete="new-password"/></label>}{error&&<div className="form-error">{error}</div>}<button className="btn primary" disabled={busy}>{registering?<UserPlus size={18}/>:<LogIn size={18}/>} {busy?"Đang xử lý…":registering?"Đăng ký":"Đăng nhập"}</button><button className="btn secondary" type="button" disabled={busy} onClick={()=>switchMode(registering?"login":"register")}>{registering?"Đã có tài khoản? Đăng nhập":"Chưa có tài khoản? Đăng ký"}</button></form></div>;
+  return (
+    <div className="login-page">
+      <form className="login-card" onSubmit={submit}>
+        <div className="brand login-brand">
+          <span>
+            <Leaf />
+          </span>
+          <div>
+            Green Biology<small>Khám phá sự sống</small>
+          </div>
+        </div>
+        <h1>{registering ? "Tạo tài khoản" : "Chào bạn trở lại"}</h1>
+        <p>
+          {registering
+            ? "Tài khoản học sinh sẽ được lưu vào Nơi lưu trữ."
+            : "Đăng nhập bằng tài khoản trong Nơi lưu trữ."}
+        </p>
+        {registering && (
+          <label>
+            Họ và tên
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              minLength={2}
+              maxLength={80}
+              autoComplete="name"
+            />
+          </label>
+        )}
+        <label>
+          Tên đăng nhập
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value.toLowerCase())}
+            required
+            minLength={3}
+            maxLength={40}
+            pattern="[a-z0-9._-]+"
+            autoComplete="username"
+          />
+        </label>
+        <label>
+          Mật khẩu
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={registering ? 6 : 1}
+            autoComplete={registering ? "new-password" : "current-password"}
+          />
+        </label>
+        {registering && (
+          <label>
+            Nhập lại mật khẩu
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+          </label>
+        )}
+        {error && <div className="form-error">{error}</div>}
+        <button className="btn primary" disabled={busy}>
+          {registering ? <UserPlus size={18} /> : <LogIn size={18} />}{" "}
+          {busy ? "Đang xử lý…" : registering ? "Đăng ký" : "Đăng nhập"}
+        </button>
+        <button
+          className="btn secondary"
+          type="button"
+          disabled={busy}
+          onClick={() => switchMode(registering ? "login" : "register")}
+        >
+          {registering
+            ? "Đã có tài khoản? Đăng nhập"
+            : "Chưa có tài khoản? Đăng ký"}
+        </button>
+      </form>
+    </div>
+  );
 }

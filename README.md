@@ -12,7 +12,7 @@ Tài liệu đầy đủ về kiến trúc, chức năng, dữ liệu, API, tri�
 - Báo cáo minh họa được lưu trong `localStorage` của trình duyệt.
 - OpenStreetMap, Open-Meteo và WAQI được web gọi trực tiếp. River AI và Species API được gọi qua Apps Script để tránh lỗi CORS/cookie.
 
-## Thiết lập Google Sheets
+## Thiết lập Nơi lưu trữ
 
 1. Tạo Google Sheet và lấy ID trong URL.
 2. Tạo Apps Script, chép `google-apps-script/Code.gs` và `appsscript.json`.
@@ -20,22 +20,22 @@ Tài liệu đầy đủ về kiến trúc, chức năng, dữ liệu, API, tri�
 4. Chạy `setup()` một lần để tạo sheet `Users` và `Config`.
 5. Có thể thêm tài khoản trực tiếp vào Sheet, ví dụ:
 
-| username | pwd | name | role |
-| --- | --- | --- | --- |
+| username  | pwd    | name         | role    |
+| --------- | ------ | ------------ | ------- |
 | student01 | 123456 | Nguyễn Văn A | STUDENT |
-| teacher01 | 123456 | Giáo viên | TEACHER |
+| teacher01 | 123456 | Giáo viên    | TEACHER |
 
 Người dùng cũng có thể tự đăng ký trên website. Tài khoản tự đăng ký luôn có role `STUDENT`; tài khoản `TEACHER` chỉ được tạo thủ công trong Sheet.
 
 Trong sheet `Config`, điền giá trị cho các key:
 
-| key | value |
-| --- | --- |
-| RIVER_API_KEY | Khóa River AI |
-| RIVER_BASE_URL | https://api.river.ai/v1 |
-| SPECIES_API_URL | https://trituexanhhocduong.4devvn.com/api/identify-species.php |
-| SPECIES_API_PHPSESSID | Phiên đăng nhập Species API |
-| IMGBB_API_KEY | Khóa API v1 của ImgBB dùng để tải ảnh minh chứng |
+| key                   | value                                                          |
+| --------------------- | -------------------------------------------------------------- |
+| RIVER_API_KEY         | Khóa River AI                                                  |
+| RIVER_BASE_URL        | https://api.river.ai/v1                                        |
+| SPECIES_API_URL       | https://trituexanhhocduong.4devvn.com/api/identify-species.php |
+| SPECIES_API_PHPSESSID | Phiên đăng nhập Species API                                    |
+| IMGBB_API_KEY         | Khóa API v1 của ImgBB dùng để tải ảnh minh chứng               |
 
 6. Deploy Apps Script dạng Web app, quyền truy cập `Anyone`, rồi lấy URL `/exec`.
 
