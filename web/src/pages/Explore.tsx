@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  ChevronRight,
   ExternalLink,
   MapPin,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
+  TriangleAlert,
   Trees,
   X,
 } from "lucide-react";
@@ -31,6 +34,9 @@ function openAreaInGoogleMaps(area: ProtectedArea) {
 
 export default function Explore() {
   const [query, setQuery] = useState("");
+  const [mapFilter, setMapFilter] = useState<"reserve" | "report">("reserve");
+  const [filterOpen, setFilterOpen] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<PollutionReport>();
   const [detailArea, setDetailArea] = useState<ProtectedArea>();
   const [mapError, setMapError] = useState("");
   const [mapReady, setMapReady] = useState(false);
@@ -109,6 +115,15 @@ export default function Explore() {
       ].some((text) => text.toLocaleLowerCase("vi").includes(value)),
     );
   }, [query]);
+  const filteredReports = useMemo(() => {
+    const value = query.trim().toLocaleLowerCase("vi");
+    if (!value) return pollutionReports;
+    return pollutionReports.filter((report) =>
+      [report.title, report.description, report.incidentType, report.studentName].some(
+        (text) => text.toLocaleLowerCase("vi").includes(value),
+      ),
+    );
+  }, [pollutionReports, query]);
 
   useEffect(() => {
     const map = mapInstance.current;
@@ -118,6 +133,10 @@ export default function Explore() {
     markers.current.forEach((marker) => {
       marker.map = null;
     });
+    if (mapFilter !== "reserve") {
+      markers.current = [];
+      return;
+    }
     markers.current = filtered.map((area) => {
       const content = document.createElement("button");
       content.className = "google-park-marker";
@@ -142,30 +161,50 @@ export default function Explore() {
       });
       return marker;
     });
-  }, [filtered, mapReady]);
+  }, [filtered, mapFilter, mapReady]);
 
   useEffect(() => {
     const map = mapInstance.current;
     const AdvancedMarkerElement = markerClass.current;
     if (!map || !AdvancedMarkerElement) return;
     reportMarkers.current.forEach((marker) => { marker.map = null; });
-    const groups = pollutionReports.reduce<Record<string, PollutionReport[]>>((result, report) => {
-      const key = `${Number(report.latitude).toFixed(5)},${Number(report.longitude).toFixed(5)}`;
-      (result[key] ||= []).push(report);
-      return result;
-    }, {});
-    reportMarkers.current = Object.values(groups).map((album) => {
-      const first = album[0];
+    if (mapFilter !== "report" || !selectedReport) {
+      reportMarkers.current = [];
+      return;
+    }
+    const report = selectedReport;
       const content = document.createElement("button");
       content.className = "pollution-map-marker";
       content.type = "button";
-      content.textContent = String(album.length);
-      content.title = `${album.length} báo cáo ô nhiễm`;
-      const marker = new AdvancedMarkerElement({ map, position: { lat: Number(first.latitude), lng: Number(first.longitude) }, content, title: content.title });
-      marker.addListener("click", () => setReportAlbum(album));
-      return marker;
-    });
-  }, [pollutionReports, mapReady]);
+      content.innerHTML = '<span aria-hidden="true">!</span>';
+      content.title = report.title;
+      const marker = new AdvancedMarkerElement({
+        map,
+        position: { lat: Number(report.latitude), lng: Number(report.longitude) },
+        content,
+        title: report.title,
+      });
+      marker.addListener("click", () => setReportAlbum([report]));
+      reportMarkers.current = [marker];
+  }, [mapFilter, mapReady, selectedReport]);
+
+  function selectFilter(filter: "reserve" | "report") {
+    setMapFilter(filter);
+    setQuery("");
+    setDetailArea(undefined);
+    setReportAlbum(undefined);
+    if (filter === "reserve") setSelectedReport(undefined);
+  }
+
+  function showReportOnMap(report: PollutionReport) {
+    setSelectedReport(report);
+    setReportAlbum(undefined);
+    const map = mapInstance.current;
+    if (map) {
+      map.panTo({ lat: Number(report.latitude), lng: Number(report.longitude) });
+      map.setZoom(15);
+    }
+  }
 
   return (
     <div className="explore-page map-screen">
@@ -175,22 +214,76 @@ export default function Explore() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tìm địa điểm"
-            aria-label="Tìm khu bảo tồn"
+            placeholder={mapFilter === "reserve" ? "Tìm khu bảo tồn" : "Tìm báo cáo"}
+            aria-label={mapFilter === "reserve" ? "Tìm khu bảo tồn" : "Tìm báo cáo"}
           />
         </label>
-        <span>{filtered.length} địa điểm</span>
+        <span>{mapFilter === "reserve" ? `${filtered.length} địa điểm` : `${filteredReports.length} báo cáo`}</span>
       </div>
       <div
         ref={mapElement}
         className="map-screen-map"
-        aria-label="Bản đồ các khu bảo tồn"
+        aria-label="Bản đồ khám phá khu bảo tồn và báo cáo môi trường"
       />
       {mapError && (
         <div className="map-error" role="alert">
           {mapError}
         </div>
       )}
+      {!filterOpen && (
+        <button className="map-filter-toggle" type="button" onClick={() => setFilterOpen(true)} aria-expanded="false" aria-controls="map-filter-panel">
+          <SlidersHorizontal size={19} />
+          Bộ lọc
+        </button>
+      )}
+      {filterOpen && <aside id="map-filter-panel" className="map-filter-panel" aria-label="Bộ lọc bản đồ">
+        <div className="map-filter-heading">
+          <div>
+            <span className="kicker">KHÁM PHÁ</span>
+            <h2>Lớp dữ liệu</h2>
+          </div>
+          <button type="button" onClick={() => setFilterOpen(false)} aria-label="Đóng bộ lọc" title="Thu gọn bộ lọc">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <div className="map-filter-options" role="tablist" aria-label="Chọn loại dữ liệu">
+          <button type="button" role="tab" aria-selected={mapFilter === "reserve"} className={mapFilter === "reserve" ? "active" : ""} onClick={() => selectFilter("reserve")}>
+            <Trees size={18} /> Khu bảo tồn
+          </button>
+          <button type="button" role="tab" aria-selected={mapFilter === "report"} className={mapFilter === "report" ? "active report" : ""} onClick={() => selectFilter("report")}>
+            <TriangleAlert size={18} /> Báo cáo
+          </button>
+        </div>
+        <div className="map-filter-list" role="tabpanel">
+          {mapFilter === "reserve" ? (
+            <>
+              <p className="map-filter-summary">Hiển thị {filtered.length} khu bảo tồn trên bản đồ.</p>
+              {filtered.map((area) => (
+                <button className="map-list-item" type="button" key={area.id} onClick={() => {
+                  setDetailArea(area);
+                  mapInstance.current?.panTo({ lat: area.location.latitude, lng: area.location.longitude });
+                  mapInstance.current?.setZoom(10);
+                }}>
+                  <span className="map-list-icon reserve"><Trees size={17} /></span>
+                  <span><strong>{area.name}</strong><small>{area.location.provinces.join(" · ")}</small></span>
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="map-filter-summary">Chọn một báo cáo để hiển thị vị trí trên bản đồ.</p>
+              {filteredReports.length === 0 && <p className="map-filter-empty">Không tìm thấy báo cáo phù hợp.</p>}
+              {filteredReports.map((report) => (
+                <button className={`map-list-item report ${selectedReport?.id === report.id ? "selected" : ""}`} type="button" key={report.id} onClick={() => showReportOnMap(report)}>
+                  {report.imageUrls[0] ? <img src={report.imageUrls[0]} alt="" /> : <span className="map-list-icon report"><TriangleAlert size={17} /></span>}
+                  <span><strong>{report.title}</strong><small>{report.incidentType} · {report.studentName}</small></span>
+                  <MapPin size={16} />
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </aside>}
       {reportAlbum && (
         <div className="area-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setReportAlbum(undefined); }}>
           <article className="area-modal report-album" role="dialog" aria-modal="true" aria-labelledby="report-album-title">

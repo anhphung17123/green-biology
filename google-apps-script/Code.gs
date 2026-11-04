@@ -1,7 +1,44 @@
 const USER_HEADERS = ["username", "pwd", "name", "role"];
-const REPORT_HEADERS = ["id", "title", "description", "incidentType", "latitude", "longitude", "imageUrls", "studentUsername", "studentName", "status", "createdAt", "reviewedAt", "reviewedBy"];
-const CHALLENGE_HEADERS = ["id", "title", "description", "target", "points", "endsAt", "proofInstructions", "active"];
-const PROOF_HEADERS = ["id", "challengeId", "studentUsername", "studentName", "imageUrl", "note", "status", "createdAt", "reviewedAt", "reviewedBy"];
+const REPORT_HEADERS = [
+  "id",
+  "title",
+  "description",
+  "incidentType",
+  "latitude",
+  "longitude",
+  "imageUrls",
+  "studentUsername",
+  "studentName",
+  "status",
+  "createdAt",
+  "reviewedAt",
+  "reviewedBy",
+];
+const CHALLENGE_HEADERS = [
+  "id",
+  "title",
+  "description",
+  "target",
+  "points",
+  "endsAt",
+  "proofInstructions",
+  "active",
+];
+const PROOF_HEADERS = [
+  "id",
+  "challengeId",
+  "studentUsername",
+  "studentName",
+  "imageUrl",
+  "note",
+  "status",
+  "createdAt",
+  "reviewedAt",
+  "reviewedBy",
+];
+const CACHE_TTL_SECONDS = 60;
+const CONFIG_CACHE_TTL_SECONDS = 300;
+let spreadsheetInstance_ = null;
 
 function doGet() {
   return json_({ ok: true, service: "Green Biology Users" });
@@ -15,6 +52,8 @@ function doPost(event) {
     if (body.action === "register") return register_(body);
     if (body.action === "chat") return chat_(body);
     if (body.action === "recognize") return recognize_(body);
+    if (body.action === "uploadEvidenceImage")
+      return uploadEvidenceImage_(body);
     if (body.action === "createReport") return createReport_(body);
     if (body.action === "listReports") return listReports_(body);
     if (body.action === "reviewReport") return reviewReport_(body);
@@ -22,9 +61,12 @@ function doPost(event) {
     if (body.action === "createChallenge") return createChallenge_(body);
     if (body.action === "updateChallenge") return updateChallenge_(body);
     if (body.action === "deleteChallenge") return deleteChallenge_(body);
-    if (body.action === "submitChallengeProof") return submitChallengeProof_(body);
-    if (body.action === "listChallengeProofs") return listChallengeProofs_(body);
-    if (body.action === "reviewChallengeProof") return reviewChallengeProof_(body);
+    if (body.action === "submitChallengeProof")
+      return submitChallengeProof_(body);
+    if (body.action === "listChallengeProofs")
+      return listChallengeProofs_(body);
+    if (body.action === "reviewChallengeProof")
+      return reviewChallengeProof_(body);
     if (body.action === "listLeaderboard") return listLeaderboard_();
     if (body.action !== "login")
       return json_({ ok: false, message: "Thao tác không hợp lệ" });
@@ -55,7 +97,7 @@ function doPost(event) {
   } catch (error) {
     return json_({
       ok: false,
-      message: error.message || "Không thể đọc Google Sheets",
+      message: error.message || "Không thể đọc Nơi lưu trữ",
     });
   }
 }
@@ -88,6 +130,7 @@ function register_(body) {
       return json_({ ok: false, message: "Tên đăng nhập đã tồn tại" });
     const sheet = spreadsheet_().getSheetByName("Users");
     sheet.appendRow([username, pwd, name, "STUDENT"]);
+    invalidateCache_("Users");
   } finally {
     lock.releaseLock();
   }
@@ -113,59 +156,225 @@ function setup() {
       "https://trituexanhhocduong.4devvn.com/api/identify-species.php",
     ]);
     config.appendRow(["SPECIES_API_PHPSESSID", ""]);
+    config.appendRow(["IMGBB_API_KEY", ""]);
   }
+  const configKeys =
+    config.getLastRow() > 1
+      ? config
+          .getRange(2, 1, config.getLastRow() - 1, 1)
+          .getValues()
+          .flat()
+      : [];
+  if (configKeys.indexOf("IMGBB_API_KEY") === -1)
+    config.appendRow(["IMGBB_API_KEY", ""]);
   ensureSheet_(book, "Reports", REPORT_HEADERS);
   const challenges = ensureSheet_(book, "Challenges", CHALLENGE_HEADERS);
   ensureSheet_(book, "ChallengeProofs", PROOF_HEADERS);
   if (challenges.getLastRow() === 1) {
     challenges.getRange(2, 1, 5, CHALLENGE_HEADERS.length).setValues([
-      ["walk-1000", "Đi bộ 1.000 bước", "Đi bộ ít nhất 1.000 bước trong ngày.", "1000 bước", 10, "2027-12-31", "Gửi link ảnh chụp màn hình số bước.", true],
-      ["cycle-5km", "Đạp xe 5 km", "Đạp xe quãng đường tối thiểu 5 km.", "5 km", 20, "2027-12-31", "Gửi link ảnh hành trình hoặc đồng hồ đo.", true],
-      ["collect-waste", "Thu nhặt rác", "Thu nhặt và phân loại rác tại khu vực sinh sống.", "1 hoạt động", 15, "2027-12-31", "Gửi link ảnh trước và sau hoạt động.", true],
-      ["collect-bottles", "Thu gom chai nhựa", "Thu gom vỏ chai nhựa rỗng để tái chế.", "10 chai", 15, "2027-12-31", "Gửi link ảnh số chai đã thu gom.", true],
-      ["plant-tree", "Trồng một cây xanh", "Trồng và chăm sóc một cây phù hợp.", "1 cây", 25, "2027-12-31", "Gửi link ảnh cây đã trồng.", true],
+      [
+        "walk-1000",
+        "Đi bộ 1.000 bước",
+        "Đi bộ ít nhất 1.000 bước trong ngày.",
+        "1000 bước",
+        10,
+        "2027-12-31",
+        "Gửi link ảnh chụp màn hình số bước.",
+        true,
+      ],
+      [
+        "cycle-5km",
+        "Đạp xe 5 km",
+        "Đạp xe quãng đường tối thiểu 5 km.",
+        "5 km",
+        20,
+        "2027-12-31",
+        "Gửi link ảnh hành trình hoặc đồng hồ đo.",
+        true,
+      ],
+      [
+        "collect-waste",
+        "Thu nhặt rác",
+        "Thu nhặt và phân loại rác tại khu vực sinh sống.",
+        "1 hoạt động",
+        15,
+        "2027-12-31",
+        "Gửi link ảnh trước và sau hoạt động.",
+        true,
+      ],
+      [
+        "collect-bottles",
+        "Thu gom chai nhựa",
+        "Thu gom vỏ chai nhựa rỗng để tái chế.",
+        "10 chai",
+        15,
+        "2027-12-31",
+        "Gửi link ảnh số chai đã thu gom.",
+        true,
+      ],
+      [
+        "plant-tree",
+        "Trồng một cây xanh",
+        "Trồng và chăm sóc một cây phù hợp.",
+        "1 cây",
+        25,
+        "2027-12-31",
+        "Gửi link ảnh cây đã trồng.",
+        true,
+      ],
     ]);
   }
 }
 
+function uploadEvidenceImage_(body) {
+  requireUser_(body.username);
+  const apiKey =
+    PropertiesService.getScriptProperties().getProperty("IMGBB_API_KEY") ||
+    config_().IMGBB_API_KEY;
+  if (!apiKey)
+    return json_({ ok: false, message: "Chưa cấu hình IMGBB_API_KEY" });
+
+  const image = String(body.image || "").replace(
+    /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
+    "",
+  );
+  const mimeType = String(body.mimeType || "").toLowerCase();
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (!allowedTypes.includes(mimeType))
+    return json_({
+      ok: false,
+      message: "Chỉ hỗ trợ ảnh JPEG, PNG, WebP hoặc GIF",
+    });
+  if (!image || !/^[a-zA-Z0-9+/=\r\n]+$/.test(image))
+    return json_({ ok: false, message: "Dữ liệu ảnh không hợp lệ" });
+  if (image.length > (32 * 1024 * 1024 * 4) / 3 + 4)
+    return json_({ ok: false, message: "Ảnh không được vượt quá 32 MB" });
+
+  const name =
+    String(body.filename || "evidence")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .slice(0, 80) || "evidence";
+  const response = UrlFetchApp.fetch("https://api.imgbb.com/1/upload", {
+    method: "post",
+    payload: { key: apiKey, image: image, name: name },
+    muteHttpExceptions: true,
+  });
+  let result = {};
+  try {
+    result = JSON.parse(response.getContentText());
+  } catch (_) {}
+  if (
+    response.getResponseCode() < 200 ||
+    response.getResponseCode() >= 300 ||
+    !result.success ||
+    !result.data ||
+    !result.data.url
+  )
+    return json_({
+      ok: false,
+      message:
+        (result.error && result.error.message) || "Không thể tải ảnh lên ImgBB",
+    });
+  return json_({
+    ok: true,
+    data: {
+      url: result.data.url,
+      displayUrl: result.data.display_url,
+      viewerUrl: result.data.url_viewer,
+    },
+  });
+}
+
 function createReport_(body) {
   const user = requireUser_(body.username);
-  const urls = Array.isArray(body.imageUrls) ? body.imageUrls.map(validUrl_) : [];
-  if (!String(body.title || "").trim() || String(body.description || "").trim().length < 20)
-    return json_({ ok: false, message: "Báo cáo cần tiêu đề và mô tả ít nhất 20 ký tự" });
+  const urls = Array.isArray(body.imageUrls)
+    ? body.imageUrls.map(validUrl_)
+    : [];
+  if (
+    !String(body.title || "").trim() ||
+    String(body.description || "").trim().length < 20
+  )
+    return json_({
+      ok: false,
+      message: "Báo cáo cần tiêu đề và mô tả ít nhất 20 ký tự",
+    });
   if (!urls.length || urls.length > 6)
     return json_({ ok: false, message: "Cần từ 1 đến 6 link ảnh hợp lệ" });
-  const lat = Number(body.latitude), lng = Number(body.longitude);
-  if (!isFinite(lat) || lat < -90 || lat > 90 || !isFinite(lng) || lng < -180 || lng > 180)
+  const lat = Number(body.latitude),
+    lng = Number(body.longitude);
+  if (
+    !isFinite(lat) ||
+    lat < -90 ||
+    lat > 90 ||
+    !isFinite(lng) ||
+    lng < -180 ||
+    lng > 180
+  )
     return json_({ ok: false, message: "Tọa độ không hợp lệ" });
-  const item = [Utilities.getUuid(), String(body.title).trim(), String(body.description).trim(), String(body.incidentType || "OTHER"), lat, lng, JSON.stringify(urls), user.username, user.name || user.username, "PENDING", new Date().toISOString(), "", ""];
-  spreadsheet_().getSheetByName("Reports").appendRow(item);
+  const item = [
+    Utilities.getUuid(),
+    String(body.title).trim(),
+    String(body.description).trim(),
+    String(body.incidentType || "OTHER"),
+    lat,
+    lng,
+    JSON.stringify(urls),
+    user.username,
+    user.name || user.username,
+    "PENDING",
+    new Date().toISOString(),
+    "",
+    "",
+  ];
+  appendRow_("Reports", item);
   return json_({ ok: true, data: objectFromRow_(REPORT_HEADERS, item) });
 }
 
 function listReports_(body) {
   const user = findUser_(body.username);
   let items = rows_("Reports", REPORT_HEADERS);
-  if (!user || user.role !== "TEACHER") items = items.filter(function (item) { return item.status === "APPROVED" || (user && item.studentUsername === user.username); });
+  if (!user || user.role !== "TEACHER")
+    items = items.filter(function (item) {
+      return (
+        item.status === "APPROVED" ||
+        (user && item.studentUsername === user.username)
+      );
+    });
   return json_({ ok: true, data: items.map(parseReport_) });
 }
 
 function reviewReport_(body) {
   const teacher = requireTeacher_(body.username);
-  const status = String(body.status) === "APPROVED" ? "APPROVED" : String(body.status) === "REJECTED" ? "REJECTED" : "";
-  if (!status) return json_({ ok: false, message: "Trạng thái duyệt không hợp lệ" });
-  updateRow_("Reports", REPORT_HEADERS, body.id, { status: status, reviewedAt: new Date().toISOString(), reviewedBy: teacher.username });
+  const status =
+    String(body.status) === "APPROVED"
+      ? "APPROVED"
+      : String(body.status) === "REJECTED"
+        ? "REJECTED"
+        : "";
+  if (!status)
+    return json_({ ok: false, message: "Trạng thái duyệt không hợp lệ" });
+  updateRow_("Reports", REPORT_HEADERS, body.id, {
+    status: status,
+    reviewedAt: new Date().toISOString(),
+    reviewedBy: teacher.username,
+  });
   return json_({ ok: true });
 }
 
 function listChallenges_() {
-  return json_({ ok: true, data: rows_("Challenges", CHALLENGE_HEADERS).filter(function (item) { return String(item.active).toLowerCase() !== "false"; }) });
+  return json_({
+    ok: true,
+    data: rows_("Challenges", CHALLENGE_HEADERS).filter(function (item) {
+      return String(item.active).toLowerCase() !== "false";
+    }),
+  });
 }
 
 function createChallenge_(body) {
   requireTeacher_(body.username);
   const item = challengeRow_(body, Utilities.getUuid());
-  spreadsheet_().getSheetByName("Challenges").appendRow(item);
+  appendRow_("Challenges", item);
   return json_({ ok: true, data: objectFromRow_(CHALLENGE_HEADERS, item) });
 }
 
@@ -180,61 +389,143 @@ function updateChallenge_(body) {
 
 function deleteChallenge_(body) {
   requireTeacher_(body.username);
-  const used = rows_("ChallengeProofs", PROOF_HEADERS).some(function (proof) { return proof.challengeId === body.id; });
-  if (used) return json_({ ok: false, message: "Không thể xóa thử thách đã có minh chứng. Hãy sửa ngày kết thúc hoặc trạng thái." });
+  const used = rows_("ChallengeProofs", PROOF_HEADERS).some(function (proof) {
+    return proof.challengeId === body.id;
+  });
+  if (used)
+    return json_({
+      ok: false,
+      message:
+        "Không thể xóa thử thách đã có minh chứng. Hãy sửa ngày kết thúc hoặc trạng thái.",
+    });
   deleteRow_("Challenges", body.id);
   return json_({ ok: true });
 }
 
 function challengeRow_(body, id) {
-  const title = String(body.title || "").trim(), description = String(body.description || "").trim();
-  const points = Number(body.points), endsAt = String(body.endsAt || "").trim();
-  if (title.length < 3 || description.length < 10) throw new Error("Tên hoặc mô tả thử thách quá ngắn");
-  if (!isFinite(points) || points < 1 || points > 10000) throw new Error("Điểm thử thách không hợp lệ");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(endsAt)) throw new Error("Ngày kết thúc không hợp lệ");
-  return [id, title, description, String(body.target || "").trim(), points, endsAt, String(body.proofInstructions || "").trim(), body.active !== false];
+  const title = String(body.title || "").trim(),
+    description = String(body.description || "").trim();
+  const points = Number(body.points),
+    endsAt = String(body.endsAt || "").trim();
+  if (title.length < 3 || description.length < 10)
+    throw new Error("Tên hoặc mô tả thử thách quá ngắn");
+  if (!isFinite(points) || points < 1 || points > 10000)
+    throw new Error("Điểm thử thách không hợp lệ");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endsAt))
+    throw new Error("Ngày kết thúc không hợp lệ");
+  return [
+    id,
+    title,
+    description,
+    String(body.target || "").trim(),
+    points,
+    endsAt,
+    String(body.proofInstructions || "").trim(),
+    body.active !== false,
+  ];
 }
 
 function submitChallengeProof_(body) {
   const user = requireUser_(body.username);
-  const challenge = rows_("Challenges", CHALLENGE_HEADERS).find(function (item) { return item.id === body.challengeId; });
-  if (!challenge) return json_({ ok: false, message: "Không tìm thấy thử thách" });
+  const challenge = rows_("Challenges", CHALLENGE_HEADERS).find(
+    function (item) {
+      return item.id === body.challengeId;
+    },
+  );
+  if (!challenge)
+    return json_({ ok: false, message: "Không tìm thấy thử thách" });
   const imageUrl = validUrl_(body.imageUrl);
-  const item = [Utilities.getUuid(), challenge.id, user.username, user.name || user.username, imageUrl, String(body.note || "").trim(), "PENDING", new Date().toISOString(), "", ""];
-  spreadsheet_().getSheetByName("ChallengeProofs").appendRow(item);
+  const item = [
+    Utilities.getUuid(),
+    challenge.id,
+    user.username,
+    user.name || user.username,
+    imageUrl,
+    String(body.note || "").trim(),
+    "PENDING",
+    new Date().toISOString(),
+    "",
+    "",
+  ];
+  appendRow_("ChallengeProofs", item);
   return json_({ ok: true, data: objectFromRow_(PROOF_HEADERS, item) });
 }
 
 function listChallengeProofs_(body) {
   const user = requireUser_(body.username);
   let items = rows_("ChallengeProofs", PROOF_HEADERS);
-  if (user.role !== "TEACHER") items = items.filter(function (item) { return item.studentUsername === user.username; });
+  if (user.role !== "TEACHER")
+    items = items.filter(function (item) {
+      return item.studentUsername === user.username;
+    });
   return json_({ ok: true, data: items });
 }
 
 function reviewChallengeProof_(body) {
   const teacher = requireTeacher_(body.username);
-  const status = String(body.status) === "APPROVED" ? "APPROVED" : String(body.status) === "REJECTED" ? "REJECTED" : "";
-  if (!status) return json_({ ok: false, message: "Trạng thái duyệt không hợp lệ" });
-  updateRow_("ChallengeProofs", PROOF_HEADERS, body.id, { status: status, reviewedAt: new Date().toISOString(), reviewedBy: teacher.username });
+  const status =
+    String(body.status) === "APPROVED"
+      ? "APPROVED"
+      : String(body.status) === "REJECTED"
+        ? "REJECTED"
+        : "";
+  if (!status)
+    return json_({ ok: false, message: "Trạng thái duyệt không hợp lệ" });
+  updateRow_("ChallengeProofs", PROOF_HEADERS, body.id, {
+    status: status,
+    reviewedAt: new Date().toISOString(),
+    reviewedBy: teacher.username,
+  });
   return json_({ ok: true });
 }
 
 function listLeaderboard_() {
-  const items = users_().filter(function (user) { return user.role !== "TEACHER"; }).map(function (user) {
-    return { id: user.username, name: user.name || user.username, points: pointsFor_(user.username) };
-  }).sort(function (a, b) { return b.points - a.points; });
+  const challengePoints = {};
+  rows_("Challenges", CHALLENGE_HEADERS).forEach(function (challenge) {
+    challengePoints[challenge.id] = Number(challenge.points) || 0;
+  });
+  const pointsByUser = {};
+  rows_("ChallengeProofs", PROOF_HEADERS).forEach(function (proof) {
+    if (proof.status !== "APPROVED") return;
+    pointsByUser[proof.studentUsername] =
+      (pointsByUser[proof.studentUsername] || 0) +
+      (challengePoints[proof.challengeId] || 0);
+  });
+  const items = users_()
+    .filter(function (user) {
+      return user.role !== "TEACHER";
+    })
+    .map(function (user) {
+      return {
+        id: user.username,
+        name: user.name || user.username,
+        points: pointsByUser[user.username] || 0,
+      };
+    })
+    .sort(function (a, b) {
+      return b.points - a.points;
+    });
   return json_({ ok: true, data: items });
 }
 
 function pointsFor_(username) {
   const book = spreadsheet_();
-  if (!book.getSheetByName("ChallengeProofs") || !book.getSheetByName("Challenges")) return 0;
+  if (
+    !book.getSheetByName("ChallengeProofs") ||
+    !book.getSheetByName("Challenges")
+  )
+    return 0;
   const points = {};
-  rows_("Challenges", CHALLENGE_HEADERS).forEach(function (item) { points[item.id] = Number(item.points) || 0; });
-  return rows_("ChallengeProofs", PROOF_HEADERS).filter(function (proof) {
-    return proof.studentUsername === username && proof.status === "APPROVED";
-  }).reduce(function (total, proof) { return total + (points[proof.challengeId] || 0); }, 0);
+  rows_("Challenges", CHALLENGE_HEADERS).forEach(function (item) {
+    points[item.id] = Number(item.points) || 0;
+  });
+  return rows_("ChallengeProofs", PROOF_HEADERS)
+    .filter(function (proof) {
+      return proof.studentUsername === username && proof.status === "APPROVED";
+    })
+    .reduce(function (total, proof) {
+      return total + (points[proof.challengeId] || 0);
+    }, 0);
 }
 
 function ensureSheet_(book, name, headers) {
@@ -244,33 +535,92 @@ function ensureSheet_(book, name, headers) {
   return sheet;
 }
 function rows_(name, headers) {
+  const cached = getCachedJson_("rows:" + name);
+  if (cached) return cached;
   const sheet = spreadsheet_().getSheetByName(name);
   if (!sheet) throw new Error("Chưa có sheet " + name + ". Hãy chạy setup().");
   if (sheet.getLastRow() < 2) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues().map(function (row) { return objectFromRow_(headers, row); });
+  const items = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, headers.length)
+    .getValues()
+    .map(function (row) {
+      return objectFromRow_(headers, row);
+    });
+  putCachedJson_("rows:" + name, items, CACHE_TTL_SECONDS);
+  return items;
 }
-function objectFromRow_(headers, row) { const item = {}; headers.forEach(function (header, index) { item[header] = row[index]; }); return item; }
-function parseReport_(item) { try { item.imageUrls = JSON.parse(item.imageUrls || "[]"); } catch (_) { item.imageUrls = []; } return item; }
-function findUser_(username) { const key = String(username || "").trim().toLowerCase(); return users_().find(function (item) { return String(item.username).trim().toLowerCase() === key; }); }
-function requireUser_(username) { const user = findUser_(username); if (!user) throw new Error("Tài khoản không hợp lệ"); return user; }
-function requireTeacher_(username) { const user = requireUser_(username); if (user.role !== "TEACHER") throw new Error("Chỉ giáo viên được phép duyệt"); return user; }
-function validUrl_(value) { const url = String(value || "").trim(); if (!/^https?:\/\/[^\s]+$/i.test(url)) throw new Error("Link ảnh không hợp lệ"); return url; }
+function objectFromRow_(headers, row) {
+  const item = {};
+  headers.forEach(function (header, index) {
+    item[header] = row[index];
+  });
+  return item;
+}
+function parseReport_(item) {
+  try {
+    item.imageUrls = JSON.parse(item.imageUrls || "[]");
+  } catch (_) {
+    item.imageUrls = [];
+  }
+  return item;
+}
+function findUser_(username) {
+  const key = String(username || "")
+    .trim()
+    .toLowerCase();
+  return users_().find(function (item) {
+    return String(item.username).trim().toLowerCase() === key;
+  });
+}
+function requireUser_(username) {
+  const user = findUser_(username);
+  if (!user) throw new Error("Tài khoản không hợp lệ");
+  return user;
+}
+function requireTeacher_(username) {
+  const user = requireUser_(username);
+  if (user.role !== "TEACHER") throw new Error("Chỉ giáo viên được phép duyệt");
+  return user;
+}
+function validUrl_(value) {
+  const url = String(value || "").trim();
+  if (!/^https?:\/\/[^\s]+$/i.test(url))
+    throw new Error("Link ảnh không hợp lệ");
+  return url;
+}
 function updateRow_(name, headers, id, changes) {
-  const sheet = spreadsheet_().getSheetByName(name);
-  if (!sheet || sheet.getLastRow() < 2) throw new Error("Không tìm thấy dữ liệu");
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-  const index = values.findIndex(function (row) { return String(row[0]) === String(id); });
-  if (index < 0) throw new Error("Không tìm thấy dữ liệu");
-  Object.keys(changes).forEach(function (key) { const column = headers.indexOf(key); if (column >= 0) values[index][column] = changes[key]; });
-  sheet.getRange(index + 2, 1, 1, headers.length).setValues([values[index]]);
+  withWriteLock_(function () {
+    const sheet = spreadsheet_().getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2)
+      throw new Error("Không tìm thấy dữ liệu");
+    const values = sheet
+      .getRange(2, 1, sheet.getLastRow() - 1, headers.length)
+      .getValues();
+    const index = values.findIndex(function (row) {
+      return String(row[0]) === String(id);
+    });
+    if (index < 0) throw new Error("Không tìm thấy dữ liệu");
+    Object.keys(changes).forEach(function (key) {
+      const column = headers.indexOf(key);
+      if (column >= 0) values[index][column] = changes[key];
+    });
+    sheet.getRange(index + 2, 1, 1, headers.length).setValues([values[index]]);
+    invalidateCache_(name);
+  });
 }
 function deleteRow_(name, id) {
-  const sheet = spreadsheet_().getSheetByName(name);
-  if (!sheet || sheet.getLastRow() < 2) throw new Error("Không tìm thấy dữ liệu");
-  const ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
-  const index = ids.findIndex(function (row) { return String(row[0]) === String(id); });
-  if (index < 0) throw new Error("Không tìm thấy dữ liệu");
-  sheet.deleteRow(index + 2);
+  withWriteLock_(function () {
+    const sheet = spreadsheet_().getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2)
+      throw new Error("Không tìm thấy dữ liệu");
+    const ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    const index = ids.findIndex(function (row) {
+      return String(row[0]) === String(id);
+    });
+    if (index < 0) throw new Error("Không tìm thấy dữ liệu");
+    sheet.deleteRow(index + 2);
+    invalidateCache_(name);
+  });
 }
 
 function chat_(body) {
@@ -359,36 +709,73 @@ function recognize_(body) {
 }
 
 function config_() {
+  const cached = getCachedJson_("config");
+  if (cached) return cached;
   const sheet = spreadsheet_().getSheetByName("Config");
   if (!sheet || sheet.getLastRow() < 2)
     throw new Error("Chưa có sheet Config. Hãy chạy setup().");
-  return sheet
+  const config = sheet
     .getRange(2, 1, sheet.getLastRow() - 1, 2)
     .getValues()
     .reduce((result, row) => {
       result[String(row[0]).trim()] = String(row[1]).trim();
       return result;
     }, {});
+  putCachedJson_("config", config, CONFIG_CACHE_TTL_SECONDS);
+  return config;
 }
 
 function users_() {
-  const sheet = spreadsheet_().getSheetByName("Users");
-  if (!sheet) throw new Error("Chưa có sheet Users. Hãy chạy setup() một lần.");
-  if (sheet.getLastRow() < 2) return [];
-  return sheet
-    .getRange(2, 1, sheet.getLastRow() - 1, USER_HEADERS.length)
-    .getValues()
-    .map((values) => {
-      const user = {};
-      USER_HEADERS.forEach((header, index) => (user[header] = values[index]));
-      return user;
-    });
+  return rows_("Users", USER_HEADERS);
+}
+
+function appendRow_(name, row) {
+  withWriteLock_(function () {
+    const sheet = spreadsheet_().getSheetByName(name);
+    if (!sheet)
+      throw new Error("Chưa có sheet " + name + ". Hãy chạy setup().");
+    sheet.appendRow(row);
+    invalidateCache_(name);
+  });
+}
+
+function withWriteLock_(operation) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000))
+    throw new Error("Hệ thống đang bận, vui lòng thử lại sau ít giây");
+  try {
+    return operation();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getCachedJson_(key) {
+  const value = CacheService.getScriptCache().get(key);
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+function putCachedJson_(key, value, ttl) {
+  try {
+    CacheService.getScriptCache().put(key, JSON.stringify(value), ttl);
+  } catch (_) {}
+}
+
+function invalidateCache_(sheetName) {
+  CacheService.getScriptCache().remove("rows:" + sheetName);
 }
 
 function spreadsheet_() {
+  if (spreadsheetInstance_) return spreadsheetInstance_;
   const id = PropertiesService.getScriptProperties().getProperty("SHEET_ID");
   if (!id) throw new Error("Thiếu Script Property SHEET_ID");
-  return SpreadsheetApp.openById(id);
+  spreadsheetInstance_ = SpreadsheetApp.openById(id);
+  return spreadsheetInstance_;
 }
 
 function json_(value) {

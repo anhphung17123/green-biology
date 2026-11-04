@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { LocateFixed, MapPin } from "lucide-react";
+import { ImageUp, LocateFixed, MapPin } from "lucide-react";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
-import { createPollutionReport } from "../api";
+import { createPollutionReport, uploadEvidenceImage } from "../api";
 import { useAuth } from "../auth";
 
 type Coordinates = { lat: number; lng: number };
@@ -12,7 +12,7 @@ export default function Reports() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("WASTE");
-  const [imageLinks, setImageLinks] = useState("");
+  const [images, setImages] = useState<File[]>([]);
   const [location, setLocation] = useState(fallbackLocation);
   const [locationMessage, setLocationMessage] = useState(
     "Đang xác định vị trí của bạn…",
@@ -125,10 +125,15 @@ export default function Reports() {
     setMessage("");
     try {
       if (!user) throw new Error("Bạn cần đăng nhập để gửi báo cáo");
-      const imageUrls = imageLinks
-        .split(/\n|,/)
-        .map((link) => link.trim())
-        .filter(Boolean);
+      if (!images.length) throw new Error("Vui lòng chọn ít nhất một ảnh minh chứng");
+      if (images.length > 6) throw new Error("Mỗi báo cáo được tải tối đa 6 ảnh");
+      if (images.some((image) => image.size > 32 * 1024 * 1024))
+        throw new Error("Mỗi ảnh không được vượt quá 32 MB");
+      const imageUrls: string[] = [];
+      for (const image of images) {
+        const uploaded = await uploadEvidenceImage(user.username, image);
+        imageUrls.push(uploaded.url);
+      }
       await createPollutionReport({
         title,
         description,
@@ -141,7 +146,7 @@ export default function Reports() {
       setMessage("Đã gửi báo cáo. Giáo viên sẽ duyệt trước khi hiển thị trên bản đồ.");
       setTitle("");
       setDescription("");
-      setImageLinks("");
+      setImages([]);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Không thể gửi báo cáo",
@@ -157,7 +162,7 @@ export default function Reports() {
         <div>
           <span className="kicker">HÀNH ĐỘNG CỘNG ĐỒNG</span>
           <h1>Báo cáo vấn đề môi trường</h1>
-          <p>Gửi vị trí và link ảnh để giáo viên xác minh.</p>
+          <p>Gửi vị trí và ảnh minh chứng để giáo viên xác minh.</p>
         </div>
       </div>
       <form className="report-form" onSubmit={submit}>
@@ -191,15 +196,21 @@ export default function Reports() {
             <option value="OTHER">Khác</option>
           </select>
         </label>
-        <label>
-          Link ảnh minh chứng
-          <textarea
-            className="report-image-links"
-            value={imageLinks}
-            onChange={(e) => setImageLinks(e.target.value)}
+        <label className="report-file-picker">
+          Ảnh minh chứng
+          <input
+            key={images.length ? "selected" : "empty"}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
             required
-            placeholder="Dán link ảnh công khai, mỗi link một dòng (tối đa 6 ảnh)"
+            onChange={(event) => setImages(Array.from(event.target.files || []).slice(0, 6))}
           />
+          <span className="report-file-button">
+            <ImageUp size={19}/>
+            {images.length ? `Đã chọn ${images.length} ảnh` : "Chọn từ 1 đến 6 ảnh"}
+          </span>
+          <small>JPEG, PNG, WebP hoặc GIF · tối đa 32 MB mỗi ảnh</small>
         </label>
         <section className="report-location-picker">
           <div className="report-location-heading">
@@ -234,7 +245,7 @@ export default function Reports() {
         </section>
         <button className="btn primary" disabled={busy}>
           <MapPin />
-          {busy ? "Đang gửi…" : "Gửi báo cáo"}
+          {busy ? "Đang tải ảnh và gửi…" : "Gửi báo cáo"}
         </button>
         {message && <div className="notice">{message}</div>}
       </form>

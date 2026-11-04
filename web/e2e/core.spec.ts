@@ -10,6 +10,11 @@ test("teacher route is protected by role", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("teacher pending route is protected by role", async ({ page }) => {
+  await page.goto("/teacher/pending");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("registration form is available", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: /Chưa có tài khoản/ }).click();
@@ -29,4 +34,51 @@ test("chat and recognition remain available", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Hỏi điều bạn tò mò" })).toBeVisible();
   await page.goto("/recognition");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("mobile navigation opens, navigates, and closes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    "width=device-width, initial-scale=1",
+  );
+
+  const menu = page.getByRole("complementary", { name: "Điều hướng chính" });
+  await expect(menu).not.toBeInViewport();
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await expect(menu).toBeInViewport();
+
+  await menu.getByRole("link", { name: "Trò chơi" }).click();
+  await expect(page).toHaveURL(/\/games$/);
+  await expect(menu).not.toBeInViewport();
+});
+
+test("desktop navigation does not show mobile menu controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "Mở menu" })).toBeHidden();
+  await expect(
+    page.locator("#mobile-navigation").getByRole("button", { name: "Đóng menu" }),
+  ).toBeHidden();
+  await expect(
+    page.getByRole("complementary", { name: "Điều hướng chính" }),
+  ).toBeInViewport();
+});
+
+test("explore filter stays on the right and can be toggled", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/explore");
+
+  const filter = page.getByRole("complementary", { name: "Bộ lọc bản đồ" });
+  await expect(filter).toBeVisible();
+  const position = await filter.boundingBox();
+  expect(position?.x).toBeGreaterThan(720);
+
+  await page.getByRole("button", { name: "Đóng bộ lọc" }).click();
+  await expect(filter).toBeHidden();
+  await page.getByRole("button", { name: "Bộ lọc" }).click();
+  await expect(filter).toBeVisible();
 });
