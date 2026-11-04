@@ -2,6 +2,8 @@
 
 Ứng dụng React/Vite chạy tĩnh trên Vercel, không có NestJS, PostgreSQL hoặc database tự host.
 
+Tài liệu đầy đủ về kiến trúc, chức năng, dữ liệu, API, triển khai, kiểm thử và vận hành: [docs/WEBSITE.md](docs/WEBSITE.md).
+
 ## Dữ liệu
 
 - Sheet `Users` lưu tài khoản đăng nhập: `username`, `pwd`, `name`, `role`.
@@ -33,12 +35,13 @@ Trong sheet `Config`, điền giá trị cho các key:
 | RIVER_BASE_URL | https://api.river.ai/v1 |
 | SPECIES_API_URL | https://trituexanhhocduong.4devvn.com/api/identify-species.php |
 | SPECIES_API_PHPSESSID | Phiên đăng nhập Species API |
+| IMGBB_API_KEY | Khóa API v1 của ImgBB dùng để tải ảnh minh chứng |
 
 6. Deploy Apps Script dạng Web app, quyền truy cập `Anyone`, rồi lấy URL `/exec`.
 
 Sau khi cập nhật Apps Script, chạy lại hàm `setup()` để tạo các sheet
 `Reports`, `Challenges`, `ChallengeProofs`, sau đó tạo deployment version mới.
-Ứng dụng chỉ lưu URL ảnh công khai trong Google Sheet, không tải hoặc lưu file ảnh.
+Ảnh của báo cáo và minh chứng thử thách được tải lên ImgBB; ứng dụng chỉ lưu URL công khai trong Google Sheet. Ảnh dùng cho nhận diện loài chỉ được gửi đến Species API để phân tích, không được tải lên ImgBB. Nên đặt `IMGBB_API_KEY` trong Apps Script → Project Settings → Script Properties; cấu hình trong sheet `Config` chỉ là phương án dự phòng.
 
 ## Biến môi trường web
 

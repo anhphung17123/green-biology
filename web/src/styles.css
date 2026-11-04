@@ -1482,8 +1482,28 @@ header {
   min-height: 130px;
   resize: vertical;
 }
-.report-form .report-image-links {
-  min-height: 92px;
+.report-file-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.report-file-button {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed #87b89f;
+  border-radius: 10px;
+  color: #167b55;
+  background: #f1faf5;
+  cursor: pointer;
+}
+.report-file-picker small {
+  color: #71837d;
+  font-weight: 500;
 }
 .challenge-target {
   color: #167b55;
@@ -1549,6 +1569,26 @@ header {
   padding: 12px;
   border: 1px solid #d9e4dc;
   border-radius: 10px;
+}
+.proof-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.proof-file-button {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed #87b89f;
+  border-radius: 10px;
+  color: #167b55;
+  background: #f1faf5;
+  cursor: pointer;
+  overflow-wrap: anywhere;
 }
 .proof-modal textarea {
   min-height: 100px;

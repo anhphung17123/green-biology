@@ -25,6 +25,7 @@ export async function registerWithGoogleSheet<T>(username: string, pwd: string, 
 export async function askBiology<T>(question:string):Promise<T>{const result=await scriptRequest({action:"chat",question});return result.data as T}
 
 export async function recognizeSpecies<T>(file:File):Promise<T>{const image=await fileToBase64(file);const result=await scriptRequest({action:"recognize",image,filename:file.name,mimeType:file.type});return result.data as T}
+export async function uploadEvidenceImage(username:string,file:File){const image=await fileToBase64(file);const result=await scriptRequest({action:"uploadEvidenceImage",username,image,filename:file.name,mimeType:file.type});return result.data as {url:string;displayUrl?:string;viewerUrl?:string}}
 
 export type ReportStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type PollutionReport = { id:string;title:string;description:string;incidentType:string;latitude:number;longitude:number;imageUrls:string[];studentUsername:string;studentName:string;status:ReportStatus;createdAt:string;reviewedAt?:string;reviewedBy?:string };

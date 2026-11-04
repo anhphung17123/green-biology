@@ -15,6 +15,7 @@ function doPost(event) {
     if (body.action === "register") return register_(body);
     if (body.action === "chat") return chat_(body);
     if (body.action === "recognize") return recognize_(body);
+    if (body.action === "uploadEvidenceImage") return uploadEvidenceImage_(body);
     if (body.action === "createReport") return createReport_(body);
     if (body.action === "listReports") return listReports_(body);
     if (body.action === "reviewReport") return reviewReport_(body);
@@ -113,7 +114,13 @@ function setup() {
       "https://trituexanhhocduong.4devvn.com/api/identify-species.php",
     ]);
     config.appendRow(["SPECIES_API_PHPSESSID", ""]);
+    config.appendRow(["IMGBB_API_KEY", ""]);
   }
+  const configKeys = config.getLastRow() > 1
+    ? config.getRange(2, 1, config.getLastRow() - 1, 1).getValues().flat()
+    : [];
+  if (configKeys.indexOf("IMGBB_API_KEY") === -1)
+    config.appendRow(["IMGBB_API_KEY", ""]);
   ensureSheet_(book, "Reports", REPORT_HEADERS);
   const challenges = ensureSheet_(book, "Challenges", CHALLENGE_HEADERS);
   ensureSheet_(book, "ChallengeProofs", PROOF_HEADERS);
@@ -126,6 +133,37 @@ function setup() {
       ["plant-tree", "Trồng một cây xanh", "Trồng và chăm sóc một cây phù hợp.", "1 cây", 25, "2027-12-31", "Gửi link ảnh cây đã trồng.", true],
     ]);
   }
+}
+
+function uploadEvidenceImage_(body) {
+  requireUser_(body.username);
+  const apiKey = PropertiesService.getScriptProperties().getProperty("IMGBB_API_KEY") || config_().IMGBB_API_KEY;
+  if (!apiKey) return json_({ ok: false, message: "Chưa cấu hình IMGBB_API_KEY" });
+
+  const image = String(body.image || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+  const mimeType = String(body.mimeType || "").toLowerCase();
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (!allowedTypes.includes(mimeType))
+    return json_({ ok: false, message: "Chỉ hỗ trợ ảnh JPEG, PNG, WebP hoặc GIF" });
+  if (!image || !/^[a-zA-Z0-9+/=\r\n]+$/.test(image))
+    return json_({ ok: false, message: "Dữ liệu ảnh không hợp lệ" });
+  if (image.length > 32 * 1024 * 1024 * 4 / 3 + 4)
+    return json_({ ok: false, message: "Ảnh không được vượt quá 32 MB" });
+
+  const name = String(body.filename || "evidence")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .slice(0, 80) || "evidence";
+  const response = UrlFetchApp.fetch("https://api.imgbb.com/1/upload", {
+    method: "post",
+    payload: { key: apiKey, image: image, name: name },
+    muteHttpExceptions: true,
+  });
+  let result = {};
+  try { result = JSON.parse(response.getContentText()); } catch (_) {}
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300 || !result.success || !result.data || !result.data.url)
+    return json_({ ok: false, message: (result.error && result.error.message) || "Không thể tải ảnh lên ImgBB" });
+  return json_({ ok: true, data: { url: result.data.url, displayUrl: result.data.display_url, viewerUrl: result.data.url_viewer } });
 }
 
 function createReport_(body) {
