@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import {
   BookOpen,
@@ -90,9 +90,30 @@ function Protected({
 export default function App() {
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
   return (
     <div className="app">
-      <aside className={open ? "open" : ""}>
+      <aside
+        className={open ? "open" : ""}
+        id="mobile-navigation"
+        aria-label="Điều hướng chính"
+      >
         <div className="brand">
           <span>
             <Leaf />
@@ -101,6 +122,14 @@ export default function App() {
             Green Biology<small>Khám phá sự sống</small>
           </div>
         </div>
+        <button
+          type="button"
+          className="close icon-button"
+          aria-label="Đóng menu"
+          onClick={() => setOpen(false)}
+        >
+          <X size={22} />
+        </button>
         <div className="sidebar-navigation">
           {user?.role === "TEACHER" && (
             <div className="nav-group teacher-navigation">
@@ -155,6 +184,16 @@ export default function App() {
       <main>
         <header>
           <div className="header-start">
+            <button
+              type="button"
+              className="hamb icon-button"
+              aria-label="Mở menu"
+              aria-controls="mobile-navigation"
+              aria-expanded={open}
+              onClick={() => setOpen(true)}
+            >
+              <Menu size={22} />
+            </button>
             <div className="crumb">
               <Leaf size={14} /> Nền tảng học tập sinh học
             </div>
@@ -225,6 +264,7 @@ export default function App() {
       </main>
       {open && (
         <button
+          type="button"
           className="scrim"
           aria-label="Đóng menu"
           onClick={() => setOpen(false)}

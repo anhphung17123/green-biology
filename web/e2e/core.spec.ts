@@ -30,3 +30,35 @@ test("chat and recognition remain available", async ({ page }) => {
   await page.goto("/recognition");
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("mobile navigation opens, navigates, and closes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    "width=device-width, initial-scale=1",
+  );
+
+  const menu = page.getByRole("complementary", { name: "Điều hướng chính" });
+  await expect(menu).not.toBeInViewport();
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await expect(menu).toBeInViewport();
+
+  await menu.getByRole("link", { name: "Trò chơi" }).click();
+  await expect(page).toHaveURL(/\/games$/);
+  await expect(menu).not.toBeInViewport();
+});
+
+test("desktop navigation does not show mobile menu controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "Mở menu" })).toBeHidden();
+  await expect(
+    page.locator("#mobile-navigation").getByRole("button", { name: "Đóng menu" }),
+  ).toBeHidden();
+  await expect(
+    page.getByRole("complementary", { name: "Điều hướng chính" }),
+  ).toBeInViewport();
+});
