@@ -10,6 +10,11 @@ test("teacher route is protected by role", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("teacher pending route is protected by role", async ({ page }) => {
+  await page.goto("/teacher/pending");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("registration form is available", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: /Chưa có tài khoản/ }).click();

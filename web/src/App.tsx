@@ -5,6 +5,7 @@ import {
   Bot,
   Camera,
   CloudSun,
+  Clock3,
   Flag,
   FolderClock,
   Gamepad2,
@@ -33,6 +34,7 @@ import Magazine from "./pages/Magazine";
 import Recognition from "./pages/Recognition";
 import Reports from "./pages/Reports";
 import Teacher from "./pages/Teacher";
+import TeacherPending from "./pages/TeacherPending";
 import MyActivities from "./pages/MyActivities";
 
 type NavigationItem = {
@@ -138,6 +140,10 @@ export default function App() {
                 <NavLink to="/teacher" onClick={() => setOpen(false)}>
                   <LayoutDashboard size={19} />
                   <span>Quản lý nội dung</span>
+                </NavLink>
+                <NavLink to="/teacher/pending" onClick={() => setOpen(false)}>
+                  <Clock3 size={19} />
+                  <span>Đang chờ duyệt</span>
                 </NavLink>
               </nav>
             </div>
@@ -252,6 +258,14 @@ export default function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/magazine" element={<Magazine />} />
           <Route path="/my-activities" element={<Protected><MyActivities /></Protected>} />
+          <Route
+            path="/teacher/pending"
+            element={
+              <Protected role="TEACHER">
+                <TeacherPending />
+              </Protected>
+            }
+          />
           <Route
             path="/teacher"
             element={
