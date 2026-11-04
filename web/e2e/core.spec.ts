@@ -67,3 +67,18 @@ test("desktop navigation does not show mobile menu controls", async ({ page }) =
     page.getByRole("complementary", { name: "Điều hướng chính" }),
   ).toBeInViewport();
 });
+
+test("explore filter stays on the right and can be toggled", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/explore");
+
+  const filter = page.getByRole("complementary", { name: "Bộ lọc bản đồ" });
+  await expect(filter).toBeVisible();
+  const position = await filter.boundingBox();
+  expect(position?.x).toBeGreaterThan(720);
+
+  await page.getByRole("button", { name: "Đóng bộ lọc" }).click();
+  await expect(filter).toBeHidden();
+  await page.getByRole("button", { name: "Bộ lọc" }).click();
+  await expect(filter).toBeVisible();
+});
