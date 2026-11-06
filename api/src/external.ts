@@ -13,6 +13,49 @@ async function jsonFetch(url: string, init: RequestInit, message: string) {
   return result as any;
 }
 
+function phpSession(response: Response) {
+  const cookies = response.headers.getSetCookie?.() ?? [];
+  const combined = cookies.length ? cookies.join(",") : response.headers.get("set-cookie") || "";
+  return combined.match(/(?:^|[,;]\s*)PHPSESSID=([^;,\s]+)/i)?.[1] || "";
+}
+
+export async function createSpeciesSession(usernameValue: unknown, passwordValue: unknown) {
+  const username = String(usernameValue ?? "").trim();
+  const password = String(passwordValue ?? "");
+  if (!username || !password) throw new Error("Thiếu tài khoản hoặc mật khẩu Species API");
+
+  const loginUrl = "https://trituexanhhocduong.4devvn.com/pages/login.php";
+  const initial = await fetch(loginUrl, { redirect: "manual" });
+  let session = phpSession(initial);
+  if (!initial.ok || !session) throw new Error("Không thể khởi tạo phiên đăng nhập Species API");
+
+  const form = new URLSearchParams({ username, password });
+  const login = await fetch(loginUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: `PHPSESSID=${session}`,
+      Referer: loginUrl,
+    },
+    body: form,
+    redirect: "manual",
+  });
+  session = phpSession(login) || session;
+  const location = login.headers.get("location") || "";
+  const redirectedAwayFromLogin = login.status >= 300 && login.status < 400 && !/login\.php/i.test(location);
+  if (!redirectedAwayFromLogin)
+    throw new Error("Đăng nhập Species API thất bại. Hãy kiểm tra tài khoản hoặc mật khẩu");
+
+  const verifyUrl = new URL(location, loginUrl).toString();
+  const verify = await fetch(verifyUrl, {
+    headers: { Cookie: `PHPSESSID=${session}` },
+    redirect: "manual",
+  });
+  if (verify.status >= 300 && verify.status < 400 && /login\.php/i.test(verify.headers.get("location") || ""))
+    throw new Error("Species API không chấp nhận phiên đăng nhập");
+  return session;
+}
+
 export async function chat(questionValue: unknown, config: AppConfig) {
   const question = String(questionValue ?? "").trim();
   if (question.length < 3 || question.length > 1000)

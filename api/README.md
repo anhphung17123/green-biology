@@ -25,4 +25,16 @@ Endpoint mặc định là `http://localhost:3000`. Client phải gửi `apikey`
 
 ## API actions
 
-`login`, `register`, `chat`, `recognize`, `uploadEvidenceImage`, `createReport`, `listReports`, `reviewReport`, `listChallenges`, `createChallenge`, `updateChallenge`, `deleteChallenge`, `submitChallengeProof`, `listChallengeProofs`, `reviewChallengeProof`, `listLeaderboard`.
+`login`, `register`, `chat`, `recognize`, `uploadEvidenceImage`, `refreshSpeciesSession`, `createReport`, `listReports`, `reviewReport`, `listChallenges`, `createChallenge`, `updateChallenge`, `deleteChallenge`, `submitChallengeProof`, `listChallengeProofs`, `reviewChallengeProof`, `listLeaderboard`.
+
+`refreshSpeciesSession` chỉ cho role `TEACHER`. Request nhận `speciesUsername` và
+`speciesPassword`, đăng nhập website nhận diện rồi cập nhật
+`Config.SPECIES_API_PHPSESSID`; response không chứa cookie.
+
+### Public cron endpoint
+
+`GET` hoặc `POST /refresh-species-session` không yêu cầu API key hay JWT. Endpoint
+đọc `SPECIES_LOGIN_USERNAME` và `SPECIES_LOGIN_PASSWORD` từ secret/environment, đăng
+nhập website nhận diện và cập nhật `SPECIES_API_PHPSESSID`. Response không chứa
+cookie hoặc thông tin đăng nhập. Các request đồng thời trong cùng process dùng
+chung một lần refresh.

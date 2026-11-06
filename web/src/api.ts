@@ -1,4 +1,5 @@
 const SUPABASE_API_URL = import.meta.env.VITE_SUPABASE_API_URL?.trim();
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 const SESSION_KEY = "green_supabase_session";
@@ -92,6 +93,13 @@ export async function uploadEvidenceImage(username: string, file: File) {
     displayUrl?: string;
     viewerUrl?: string;
   };
+}
+
+export async function refreshSpeciesSession(
+  speciesUsername: string,
+  speciesPassword: string,
+) {
+  await apiRequest({ action: "refreshSpeciesSession", speciesUsername, speciesPassword });
 }
 
 export type ReportStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -242,6 +250,7 @@ export function listLeaderboard() {
 async function apiRequest(
   body: Record<string, unknown>,
   includeSession = true,
+  authRetried = false,
 ): Promise<any> {
   if (!SUPABASE_API_URL) throw new ApiError("Thiếu VITE_SUPABASE_API_URL");
   if (!SUPABASE_PUBLISHABLE_KEY)
@@ -253,7 +262,7 @@ async function apiRequest(
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const session = includeSession ? readSession() : null;
+      const session = includeSession ? await validSession() : null;
       const response = await fetch(SUPABASE_API_URL, {
         method: "POST",
         headers: {
@@ -268,6 +277,15 @@ async function apiRequest(
       });
       const result = await response.json().catch(() => ({}));
       if (response.ok && result.ok) return result;
+      if (
+        includeSession &&
+        !authRetried &&
+        result.code === "INVALID_JWT" &&
+        readSession()?.refresh_token
+      ) {
+        await refreshStoredSession(true);
+        return apiRequest(body, includeSession, true);
+      }
       const retryableStatus = response.status === 429 || response.status >= 500;
       if (!retryableStatus || attempt === attempts - 1)
         throw new ApiError(result.message || "Yêu cầu không thể xử lý lúc này");
@@ -293,6 +311,7 @@ type StoredSession = {
   refresh_token?: string;
   expires_at?: number;
 };
+let refreshInFlight: Promise<StoredSession> | null = null;
 function saveSession(session: StoredSession | undefined) {
   if (!session?.access_token)
     throw new ApiError("Supabase không trả về phiên đăng nhập");
@@ -306,6 +325,63 @@ function readSession(): StoredSession | null {
     localStorage.removeItem(SESSION_KEY);
     return null;
   }
+}
+
+async function validSession() {
+  const session = readSession();
+  if (!session) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (!session.expires_at || session.expires_at > now + 60) return session;
+  return refreshStoredSession();
+}
+
+async function refreshStoredSession(force = false): Promise<StoredSession> {
+  const current = readSession();
+  if (!current?.refresh_token) return expireSession();
+  const now = Math.floor(Date.now() / 1000);
+  if (!force && current.expires_at && current.expires_at > now + 60)
+    return current;
+  if (refreshInFlight) return refreshInFlight;
+  if (!SUPABASE_URL) throw new ApiError("Thiếu VITE_SUPABASE_URL");
+  if (!SUPABASE_PUBLISHABLE_KEY)
+    throw new ApiError("Thiếu VITE_SUPABASE_PUBLISHABLE_KEY");
+
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL.replace(/\/+$/, "")}/auth/v1/token?grant_type=refresh_token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ refresh_token: current.refresh_token }),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.access_token) return expireSession();
+      const next: StoredSession = {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token || current.refresh_token,
+        expires_at:
+          result.expires_at ||
+          Math.floor(Date.now() / 1000) + Number(result.expires_in || 3600),
+      };
+      saveSession(next);
+      return next;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+function expireSession(): never {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem("green_user");
+  window.dispatchEvent(new Event("green-auth-expired"));
+  throw new ApiError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
 }
 
 function fileToBase64(file: File): Promise<string> {

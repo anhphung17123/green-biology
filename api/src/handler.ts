@@ -1,6 +1,6 @@
 import { withSupabase, type SupabaseContext } from "@supabase/server";
 import type { SupabaseClient } from "@supabase/server/peer/supabase-js";
-import { chat, recognize, uploadImage } from "./external.js";
+import { chat, createSpeciesSession, recognize, uploadImage } from "./external.js";
 import {
   loadConfig,
   pointsFor,
@@ -242,6 +242,15 @@ async function dispatch(body: Body, ctx: Context) {
     await currentProfile(ctx);
     return ok(await uploadImage(body, await loadConfig(ctx.supabaseAdmin)));
   }
+  if (action === "refreshSpeciesSession") {
+    await currentProfile(ctx, true);
+    const session = await createSpeciesSession(body.speciesUsername, body.speciesPassword);
+    const { error } = await ctx.supabaseAdmin
+      .from("Config")
+      .upsert({ key: "SPECIES_API_PHPSESSID", value: session }, { onConflict: "key" });
+    throwIfError(error);
+    return ok({ updated: true });
+  }
   if (action === "createReport") return createReport(body, ctx);
   if (action === "listReports") return listReports(ctx);
   if (action === "reviewReport") {
@@ -383,5 +392,60 @@ export const apiHandler = withSupabase(
             : "Không thể xử lý yêu cầu";
       return Response.json({ ok: false, message }, { status: 400 });
     }
+  },
+);
+
+let speciesRefreshInFlight: Promise<Response> | null = null;
+
+export const publicSpeciesSessionHandler = withSupabase(
+  {
+    auth: "none",
+    cors: {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "content-type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      },
+    },
+  },
+  async (request, ctx) => {
+    if (request.method !== "GET" && request.method !== "POST")
+      return Response.json({ ok: false, message: "Method not allowed" }, { status: 405 });
+    if (speciesRefreshInFlight) return speciesRefreshInFlight;
+
+    speciesRefreshInFlight = (async () => {
+      try {
+        const session = await createSpeciesSession(
+          process.env.SPECIES_LOGIN_USERNAME,
+          process.env.SPECIES_LOGIN_PASSWORD,
+        );
+        const { error } = await ctx.supabaseAdmin
+          .from("Config")
+          .upsert(
+            { key: "SPECIES_API_PHPSESSID", value: session },
+            { onConflict: "key" },
+          );
+        throwIfError(error);
+        return Response.json({
+          ok: true,
+          data: { updated: true, updatedAt: new Date().toISOString() },
+        });
+      } catch (error) {
+        console.error("Public Species session refresh failed", error);
+        return Response.json(
+          {
+            ok: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Không thể làm mới Species session",
+          },
+          { status: 502 },
+        );
+      } finally {
+        speciesRefreshInFlight = null;
+      }
+    })();
+    return speciesRefreshInFlight;
   },
 );

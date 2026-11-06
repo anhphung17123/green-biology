@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage } from "node:http";
-import { apiHandler } from "./handler.js";
+import { apiHandler, publicSpeciesSessionHandler } from "./handler.js";
 
 async function toRequest(req: IncomingMessage) {
   const origin = `http://${req.headers.host || "localhost"}`;
@@ -16,7 +16,10 @@ async function toRequest(req: IncomingMessage) {
 
 const server = createServer(async (req, res) => {
   try {
-    const response = await apiHandler(await toRequest(req));
+    const request = await toRequest(req);
+    const response = new URL(request.url).pathname === "/refresh-species-session"
+      ? await publicSpeciesSessionHandler(request)
+      : await apiHandler(request);
     res.writeHead(
       response.status,
       Object.fromEntries(response.headers.entries()),

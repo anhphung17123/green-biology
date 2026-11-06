@@ -45,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   useEffect(() => {
     void refresh();
+    const expired = () => setUser(null);
+    window.addEventListener("green-auth-expired", expired);
+    return () => window.removeEventListener("green-auth-expired", expired);
   }, []);
   async function login(username: string, pwd: string) {
     const next = await loginWithSupabase<User>(username, pwd);
