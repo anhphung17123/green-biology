@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ImageUp, LocateFixed, MapPin } from "lucide-react";
+import { ImageUp, LocateFixed, MapPin, X } from "lucide-react";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
 import { createPollutionReport, uploadEvidenceImage } from "../api";
 import { useAuth } from "../auth";
@@ -13,6 +13,7 @@ export default function Reports() {
   const [description, setDescription] = useState("");
   const [type, setType] = useState("WASTE");
   const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [location, setLocation] = useState(fallbackLocation);
   const [locationMessage, setLocationMessage] = useState(
     "Đang xác định vị trí của bạn…",
@@ -25,6 +26,15 @@ export default function Reports() {
   const locationMarker = useRef<any>(null);
   const markerClass = useRef<any>(null);
 
+  useEffect(() => {
+    const urls = images.map((image) => URL.createObjectURL(image));
+    setImagePreviews(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [images]);
+
+  function removeImage(index: number) {
+    setImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
 
   function locateStudent() {
     if (!navigator.geolocation) {
@@ -199,12 +209,14 @@ export default function Reports() {
         <label className="report-file-picker">
           Ảnh minh chứng
           <input
-            key={images.length ? "selected" : "empty"}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             multiple
-            required
-            onChange={(event) => setImages(Array.from(event.target.files || []).slice(0, 6))}
+            onChange={(event) => {
+              const selected = Array.from(event.target.files || []).slice(0, 6);
+              setImages(selected);
+              event.target.value = "";
+            }}
           />
           <span className="report-file-button">
             <ImageUp size={19}/>
@@ -212,6 +224,32 @@ export default function Reports() {
           </span>
           <small>JPEG, PNG, WebP hoặc GIF · tối đa 32 MB mỗi ảnh</small>
         </label>
+        {images.length > 0 && (
+          <div className="report-image-previews" aria-label="Ảnh đã chọn">
+            {images.map((image, index) => (
+              <article className="report-image-preview" key={`${image.name}-${image.lastModified}`}>
+                <a
+                  href={imagePreviews[index]}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Mở ảnh để xem"
+                >
+                  {imagePreviews[index] && <img src={imagePreviews[index]} alt={image.name} />}
+                  <span>{image.name}</span>
+                </a>
+                <button
+                  type="button"
+                  className="report-image-remove"
+                  onClick={() => removeImage(index)}
+                  aria-label={`Xoá ảnh ${image.name}`}
+                  title="Xoá ảnh"
+                >
+                  <X size={16} />
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
         <section className="report-location-picker">
           <div className="report-location-heading">
             <div>

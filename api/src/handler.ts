@@ -175,6 +175,7 @@ async function createReport(body: Body, ctx: Context) {
   )
     throw new Error("Tọa độ không hợp lệ");
   const item = {
+    id: crypto.randomUUID(),
     title: text(body.title),
     description: text(body.description),
     incidentType: text(body.incidentType) || "OTHER",
@@ -301,7 +302,7 @@ async function dispatch(body: Body, ctx: Context) {
     await currentProfile(ctx, true);
     const { data, error } = await ctx.supabaseAdmin
       .from("Challenges")
-      .insert(challengeValues(body))
+      .insert({ id: crypto.randomUUID(), ...challengeValues(body) })
       .select()
       .single();
     throwIfError(error);
@@ -346,6 +347,7 @@ async function dispatch(body: Body, ctx: Context) {
     const { data, error } = await ctx.supabaseAdmin
       .from("ChallengeProofs")
       .insert({
+        id: crypto.randomUUID(),
         challengeId: challenge.id,
         studentUsername: user.username,
         studentName: user.name,
