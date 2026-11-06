@@ -11,6 +11,12 @@ import {
 
 type Body = Record<string, any>;
 type Context = SupabaseContext;
+function runtimeEnv(name: string) {
+  const deno = (globalThis as typeof globalThis & {
+    Deno?: { env: { get(key: string): string | undefined } };
+  }).Deno;
+  return deno?.env.get(name) ?? process.env[name];
+}
 const PUBLIC_ACTIONS = new Set([
   "login",
   "register",
@@ -360,11 +366,11 @@ async function dispatch(body: Body, ctx: Context) {
 export const apiHandler = withSupabase(
   {
     auth: ["user", "publishable"],
-    issuer: `${process.env.SUPABASE_URL?.replace(/\/+$/, "")}/auth/v1`,
+    issuer: `${runtimeEnv("SUPABASE_URL")?.replace(/\/+$/, "")}/auth/v1`,
     cors: {
       headers: {
         "Access-Control-Allow-Origin":
-          process.env.WEB_ORIGIN || "http://localhost:5173",
+          runtimeEnv("WEB_ORIGIN") || "http://localhost:5173",
         "Access-Control-Allow-Headers": "authorization, apikey, content-type",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
       },
@@ -416,8 +422,8 @@ export const publicSpeciesSessionHandler = withSupabase(
     speciesRefreshInFlight = (async () => {
       try {
         const session = await createSpeciesSession(
-          process.env.SPECIES_LOGIN_USERNAME,
-          process.env.SPECIES_LOGIN_PASSWORD,
+          runtimeEnv("SPECIES_LOGIN_USERNAME"),
+          runtimeEnv("SPECIES_LOGIN_PASSWORD"),
         );
         const { error } = await ctx.supabaseAdmin
           .from("Config")

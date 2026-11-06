@@ -38,3 +38,39 @@ Endpoint mặc định là `http://localhost:3000`. Client phải gửi `apikey`
 nhập website nhận diện và cập nhật `SPECIES_API_PHPSESSID`. Response không chứa
 cookie hoặc thông tin đăng nhập. Các request đồng thời trong cùng process dùng
 chung một lần refresh.
+
+## Deploy Supabase Edge Functions
+
+CLI được cài cục bộ trong `api`, vì vậy chạy các lệnh từ folder này:
+
+```bash
+cd api
+npx supabase login
+npm run supabase:link
+npx supabase secrets set \
+  SPECIES_LOGIN_USERNAME="..." \
+  SPECIES_LOGIN_PASSWORD="..." \
+  WEB_ORIGIN="https://your-web-domain.example"
+npm run supabase:deploy
+```
+
+Supabase tự inject `SUPABASE_URL`, publishable/secret keys và JWKS cho Edge
+Functions. Không upload `api/.env` lên Cloud.
+
+URLs sau khi deploy:
+
+```text
+https://cpkvdecdzwxanjyhvehu.supabase.co/functions/v1/green-biology-api
+https://cpkvdecdzwxanjyhvehu.supabase.co/functions/v1/refresh-species-session
+```
+
+Đặt frontend production:
+
+```env
+VITE_SUPABASE_API_URL=https://cpkvdecdzwxanjyhvehu.supabase.co/functions/v1/green-biology-api
+VITE_SUPABASE_URL=https://cpkvdecdzwxanjyhvehu.supabase.co
+```
+
+`verify_jwt = false` trong `supabase/config.toml` là bắt buộc: function API tự
+xác thực `user/publishable` bằng `@supabase/server`, còn endpoint cron được chủ
+động cấu hình public.

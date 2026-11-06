@@ -1,4 +1,5 @@
 import type { AppConfig } from "./database.js";
+import { Buffer } from "node:buffer";
 
 function required(config: AppConfig, name: string) {
   const value = config[name]?.trim();
