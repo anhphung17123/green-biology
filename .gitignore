@@ -2,8 +2,11 @@
 dist
 .env
 .env.production
+.seed-users.json
+.species-login.tmp.json
 coverage
 test-results
 playwright-report
 *.tsbuildinfo
 .DS_Store
+.agents

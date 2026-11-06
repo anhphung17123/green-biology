@@ -1,0 +1,11 @@
+project_id = "green-biology"
+
+[functions.green-biology-api]
+verify_jwt = false
+entrypoint = "./functions/green-biology-api/index.ts"
+import_map = "./functions/deno.json"
+
+[functions.refresh-species-session]
+verify_jwt = false
+entrypoint = "./functions/refresh-species-session/index.ts"
+import_map = "./functions/deno.json"

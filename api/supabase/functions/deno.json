@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@supabase/server": "npm:@supabase/server@1",
+    "@supabase/server/peer/supabase-js": "npm:@supabase/server@1/peer/supabase-js"
+  }
+}

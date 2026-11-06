@@ -1,4 +1,8 @@
-const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL?.trim();
+const SUPABASE_API_URL = import.meta.env.VITE_SUPABASE_API_URL?.trim();
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+const SESSION_KEY = "green_supabase_session";
 const RETRYABLE_ACTIONS = new Set([
   "listReports",
   "listChallenges",
@@ -29,36 +33,45 @@ function invalidate(prefix: string) {
     if (key.startsWith(prefix)) requestCache.delete(key);
 }
 
-export async function loginWithGoogleSheet<T>(
+export async function loginWithSupabase<T>(
   username: string,
   pwd: string,
 ): Promise<T> {
-  const result = await scriptRequest({ action: "login", username, pwd });
+  const result = await apiRequest({ action: "login", username, pwd }, false);
+  saveSession(result.session);
   return result.user as T;
 }
 
-export async function registerWithGoogleSheet<T>(
+export async function registerWithSupabase<T>(
   username: string,
   pwd: string,
   name: string,
 ): Promise<T> {
-  const result = await scriptRequest({
-    action: "register",
-    username,
-    pwd,
-    name,
-  });
+  const result = await apiRequest(
+    {
+      action: "register",
+      username,
+      pwd,
+      name,
+    },
+    false,
+  );
+  saveSession(result.session);
   return result.user as T;
 }
 
+export function clearSupabaseSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 export async function askBiology<T>(question: string): Promise<T> {
-  const result = await scriptRequest({ action: "chat", question });
+  const result = await apiRequest({ action: "chat", question });
   return result.data as T;
 }
 
 export async function recognizeSpecies<T>(file: File): Promise<T> {
   const image = await fileToBase64(file);
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "recognize",
     image,
     filename: file.name,
@@ -68,7 +81,7 @@ export async function recognizeSpecies<T>(file: File): Promise<T> {
 }
 export async function uploadEvidenceImage(username: string, file: File) {
   const image = await fileToBase64(file);
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "uploadEvidenceImage",
     username,
     image,
@@ -80,6 +93,13 @@ export async function uploadEvidenceImage(username: string, file: File) {
     displayUrl?: string;
     viewerUrl?: string;
   };
+}
+
+export async function refreshSpeciesSession(
+  speciesUsername: string,
+  speciesPassword: string,
+) {
+  await apiRequest({ action: "refreshSpeciesSession", speciesUsername, speciesPassword });
 }
 
 export type ReportStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -127,7 +147,7 @@ export async function createPollutionReport(
     "id" | "studentName" | "status" | "createdAt" | "reviewedAt" | "reviewedBy"
   >,
 ) {
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "createReport",
     ...payload,
     username: payload.studentUsername,
@@ -137,7 +157,7 @@ export async function createPollutionReport(
 }
 export function listPollutionReports(username?: string) {
   return cached(`reports:${username || "public"}`, async () => {
-    const result = await scriptRequest({
+    const result = await apiRequest({
       action: "listReports",
       username: username || "",
     });
@@ -149,12 +169,12 @@ export async function reviewPollutionReport(
   id: string,
   status: "APPROVED" | "REJECTED",
 ) {
-  await scriptRequest({ action: "reviewReport", username, id, status });
+  await apiRequest({ action: "reviewReport", username, id, status });
   invalidate("reports:");
 }
 export function listGreenChallenges() {
   return cached("challenges", async () => {
-    const result = await scriptRequest({ action: "listChallenges" });
+    const result = await apiRequest({ action: "listChallenges" });
     return result.data as GreenChallenge[];
   });
 }
@@ -162,7 +182,7 @@ export async function createGreenChallenge(
   username: string,
   payload: Omit<GreenChallenge, "id">,
 ) {
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "createChallenge",
     username,
     ...payload,
@@ -174,7 +194,7 @@ export async function updateGreenChallenge(
   username: string,
   payload: GreenChallenge,
 ) {
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "updateChallenge",
     username,
     ...payload,
@@ -183,7 +203,7 @@ export async function updateGreenChallenge(
   return result.data as GreenChallenge;
 }
 export async function deleteGreenChallenge(username: string, id: string) {
-  await scriptRequest({ action: "deleteChallenge", username, id });
+  await apiRequest({ action: "deleteChallenge", username, id });
   invalidate("challenges");
 }
 export async function submitChallengeProof(
@@ -192,7 +212,7 @@ export async function submitChallengeProof(
   imageUrl: string,
   note: string,
 ) {
-  const result = await scriptRequest({
+  const result = await apiRequest({
     action: "submitChallengeProof",
     username,
     challengeId,
@@ -204,7 +224,7 @@ export async function submitChallengeProof(
 }
 export function listChallengeProofs(username: string) {
   return cached(`proofs:${username}`, async () => {
-    const result = await scriptRequest({
+    const result = await apiRequest({
       action: "listChallengeProofs",
       username,
     });
@@ -216,19 +236,25 @@ export async function reviewChallengeProof(
   id: string,
   status: "APPROVED" | "REJECTED",
 ) {
-  await scriptRequest({ action: "reviewChallengeProof", username, id, status });
+  await apiRequest({ action: "reviewChallengeProof", username, id, status });
   invalidate("proofs:");
   invalidate("leaderboard");
 }
 export function listLeaderboard() {
   return cached("leaderboard", async () => {
-    const result = await scriptRequest({ action: "listLeaderboard" });
+    const result = await apiRequest({ action: "listLeaderboard" });
     return result.data as { id: string; name: string; points: number }[];
   });
 }
 
-async function scriptRequest(body: Record<string, unknown>): Promise<any> {
-  if (!GOOGLE_SCRIPT_URL) throw new ApiError("Thiếu VITE_GOOGLE_SCRIPT_URL");
+async function apiRequest(
+  body: Record<string, unknown>,
+  includeSession = true,
+  authRetried = false,
+): Promise<any> {
+  if (!SUPABASE_API_URL) throw new ApiError("Thiếu VITE_SUPABASE_API_URL");
+  if (!SUPABASE_PUBLISHABLE_KEY)
+    throw new ApiError("Thiếu VITE_SUPABASE_PUBLISHABLE_KEY");
   const action = String(body.action || "");
   const attempts = RETRYABLE_ACTIONS.has(action) ? 3 : 1;
   const timeoutMs = EXTERNAL_API_ACTIONS.has(action) ? 60000 : 15000;
@@ -236,14 +262,30 @@ async function scriptRequest(body: Record<string, unknown>): Promise<any> {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
+      const session = includeSession ? await validSession() : null;
+      const response = await fetch(SUPABASE_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
       const result = await response.json().catch(() => ({}));
       if (response.ok && result.ok) return result;
+      if (
+        includeSession &&
+        !authRetried &&
+        result.code === "INVALID_JWT" &&
+        readSession()?.refresh_token
+      ) {
+        await refreshStoredSession(true);
+        return apiRequest(body, includeSession, true);
+      }
       const retryableStatus = response.status === 429 || response.status >= 500;
       if (!retryableStatus || attempt === attempts - 1)
         throw new ApiError(result.message || "Yêu cầu không thể xử lý lúc này");
@@ -252,7 +294,7 @@ async function scriptRequest(body: Record<string, unknown>): Promise<any> {
       if (attempt === attempts - 1) {
         if (error instanceof DOMException && error.name === "AbortError")
           throw new ApiError("Nơi lưu trữ phản hồi quá lâu. Vui lòng thử lại.");
-        throw new ApiError("Không thể kết nối Nơi lưu trữ");
+        throw new ApiError("Không thể kết nối Supabase API");
       }
     } finally {
       window.clearTimeout(timeout);
@@ -261,7 +303,85 @@ async function scriptRequest(body: Record<string, unknown>): Promise<any> {
       window.setTimeout(resolve, 400 * 2 ** attempt + Math.random() * 250),
     );
   }
-  throw new ApiError("Không thể kết nối Nơi lưu trữ");
+  throw new ApiError("Không thể kết nối Supabase API");
+}
+
+type StoredSession = {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+};
+let refreshInFlight: Promise<StoredSession> | null = null;
+function saveSession(session: StoredSession | undefined) {
+  if (!session?.access_token)
+    throw new ApiError("Supabase không trả về phiên đăng nhập");
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+function readSession(): StoredSession | null {
+  try {
+    const value = localStorage.getItem(SESSION_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+async function validSession() {
+  const session = readSession();
+  if (!session) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (!session.expires_at || session.expires_at > now + 60) return session;
+  return refreshStoredSession();
+}
+
+async function refreshStoredSession(force = false): Promise<StoredSession> {
+  const current = readSession();
+  if (!current?.refresh_token) return expireSession();
+  const now = Math.floor(Date.now() / 1000);
+  if (!force && current.expires_at && current.expires_at > now + 60)
+    return current;
+  if (refreshInFlight) return refreshInFlight;
+  if (!SUPABASE_URL) throw new ApiError("Thiếu VITE_SUPABASE_URL");
+  if (!SUPABASE_PUBLISHABLE_KEY)
+    throw new ApiError("Thiếu VITE_SUPABASE_PUBLISHABLE_KEY");
+
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL.replace(/\/+$/, "")}/auth/v1/token?grant_type=refresh_token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ refresh_token: current.refresh_token }),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.access_token) return expireSession();
+      const next: StoredSession = {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token || current.refresh_token,
+        expires_at:
+          result.expires_at ||
+          Math.floor(Date.now() / 1000) + Number(result.expires_in || 3600),
+      };
+      saveSession(next);
+      return next;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+function expireSession(): never {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem("green_user");
+  window.dispatchEvent(new Event("green-auth-expired"));
+  throw new ApiError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
 }
 
 function fileToBase64(file: File): Promise<string> {
