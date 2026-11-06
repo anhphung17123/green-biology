@@ -1659,6 +1659,56 @@ header {
   color: #71837d;
   font-weight: 500;
 }
+.report-image-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+.report-image-preview {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d9e4dc;
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+.report-image-preview a {
+  display: grid;
+  color: #315e4c;
+  text-decoration: none;
+}
+.report-image-preview img {
+  width: 100%;
+  height: 105px;
+  object-fit: cover;
+  background: #e9f1ec;
+}
+.report-image-preview span {
+  overflow: hidden;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-image-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(28 42 36 / 78%);
+  cursor: pointer;
+}
+.report-image-remove:hover {
+  background: #b42318;
+}
 .challenge-target {
   color: #167b55;
   font-size: 13px;
@@ -1743,6 +1793,50 @@ header {
   background: #f1faf5;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+.proof-image-preview {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #d9e4dc;
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+.proof-image-preview a {
+  display: grid;
+  color: #315e4c;
+  text-decoration: none;
+}
+.proof-image-preview img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: #e9f1ec;
+}
+.proof-image-preview span {
+  overflow: hidden;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proof-image-preview > button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(28 42 36 / 78%);
+  cursor: pointer;
+}
+.proof-image-preview > button:hover {
+  background: #b42318;
 }
 .proof-modal textarea {
   min-height: 100px;

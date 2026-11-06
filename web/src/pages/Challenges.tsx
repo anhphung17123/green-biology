@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Clock, ExternalLink, ImageUp, Trophy } from "lucide-react";
+import { Clock, ExternalLink, ImageUp, Trophy, X } from "lucide-react";
 import {
   type ChallengeProof,
   type GreenChallenge,
@@ -24,6 +24,7 @@ export default function Challenges() {
   const [proofs, setProofs] = useState<ChallengeProof[]>([]);
   const [selected, setSelected] = useState<GreenChallenge>();
   const [image, setImage] = useState<File>();
+  const [imagePreview, setImagePreview] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,6 +52,22 @@ export default function Challenges() {
   useEffect(() => {
     void refresh();
   }, [user?.username, user?.role]);
+
+  useEffect(() => {
+    if (!image) {
+      setImagePreview("");
+      return;
+    }
+    const url = URL.createObjectURL(image);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
+
+  function closeProofModal() {
+    setSelected(undefined);
+    setImage(undefined);
+    setNote("");
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -158,7 +175,7 @@ export default function Challenges() {
         <div
           className="proof-modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSelected(undefined);
+            if (event.target === event.currentTarget) closeProofModal();
           }}
         >
           <form className="proof-modal" onSubmit={submit}>
@@ -168,14 +185,32 @@ export default function Challenges() {
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={(e) => setImage(e.target.files?.[0])}
-                required
+                onChange={(event) => {
+                  setImage(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
               />
               <span className="proof-file-button">
                 <ImageUp size={18} />
                 {image ? image.name : "Chọn ảnh (tối đa 32 MB)"}
               </span>
             </label>
+            {image && imagePreview && (
+              <section className="proof-image-preview" aria-label="Ảnh minh chứng đã chọn">
+                <a href={imagePreview} target="_blank" rel="noreferrer" title="Mở ảnh để xem">
+                  <img src={imagePreview} alt={image.name} />
+                  <span>{image.name}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setImage(undefined)}
+                  aria-label={`Xoá ảnh ${image.name}`}
+                  title="Xoá ảnh"
+                >
+                  <X size={16} />
+                </button>
+              </section>
+            )}
             <label>
               Ghi chú
               <textarea
@@ -188,7 +223,7 @@ export default function Challenges() {
               <button
                 type="button"
                 className="btn secondary"
-                onClick={() => setSelected(undefined)}
+                onClick={closeProofModal}
               >
                 Hủy
               </button>
