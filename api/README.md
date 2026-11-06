@@ -49,8 +49,7 @@ npx supabase login
 npm run supabase:link
 npx supabase secrets set \
   SPECIES_LOGIN_USERNAME="..." \
-  SPECIES_LOGIN_PASSWORD="..." \
-  WEB_ORIGIN="https://your-web-domain.example"
+  SPECIES_LOGIN_PASSWORD="..."
 npm run supabase:deploy
 ```
 
@@ -70,6 +69,18 @@ https://cpkvdecdzwxanjyhvehu.supabase.co/functions/v1/refresh-species-session
 VITE_SUPABASE_API_URL=https://cpkvdecdzwxanjyhvehu.supabase.co/functions/v1/green-biology-api
 VITE_SUPABASE_URL=https://cpkvdecdzwxanjyhvehu.supabase.co
 ```
+
+Local có thể gọi API local:
+
+```env
+VITE_SUPABASE_API_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://cpkvdecdzwxanjyhvehu.supabase.co
+```
+
+Hoặc test local trực tiếp với Edge Function Cloud bằng cách dùng URL production
+cho `VITE_SUPABASE_API_URL`. CORS chỉ cho phép
+`https://green-biology.vercel.app`, `http://localhost:5173` và
+`http://127.0.0.1:5173`.
 
 `verify_jwt = false` trong `supabase/config.toml` là bắt buộc: function API tự
 xác thực `user/publishable` bằng `@supabase/server`, còn endpoint cron được chủ

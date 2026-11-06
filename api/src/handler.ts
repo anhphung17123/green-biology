@@ -17,6 +17,30 @@ function runtimeEnv(name: string) {
   }).Deno;
   return deno?.env.get(name) ?? process.env[name];
 }
+const ALLOWED_ORIGINS = new Set([
+  "https://green-biology.vercel.app",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+type FetchHandler = (request: Request) => Promise<Response>;
+function withAllowedCors(handler: FetchHandler): FetchHandler {
+  return async (request) => {
+    const origin = request.headers.get("origin");
+    if (origin && !ALLOWED_ORIGINS.has(origin))
+      return Response.json({ ok: false, message: "Origin không được phép" }, { status: 403 });
+    const corsHeaders: Record<string, string> = {
+      "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      Vary: "Origin",
+    };
+    if (origin) corsHeaders["Access-Control-Allow-Origin"] = origin;
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+    const response = await handler(request);
+    const headers = new Headers(response.headers);
+    Object.entries(corsHeaders).forEach(([key, value]) => headers.set(key, value));
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  };
+}
 const PUBLIC_ACTIONS = new Set([
   "login",
   "register",
@@ -363,18 +387,11 @@ async function dispatch(body: Body, ctx: Context) {
   throw new Error("Thao tác không hợp lệ");
 }
 
-export const apiHandler = withSupabase(
+const apiCoreHandler = withSupabase(
   {
     auth: ["user", "publishable"],
     issuer: `${runtimeEnv("SUPABASE_URL")?.replace(/\/+$/, "")}/auth/v1`,
-    cors: {
-      headers: {
-        "Access-Control-Allow-Origin":
-          runtimeEnv("WEB_ORIGIN") || "http://localhost:5173",
-        "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      },
-    },
+    cors: "disabled",
   },
   async (request, ctx) => {
     if (request.method === "GET")
@@ -400,19 +417,14 @@ export const apiHandler = withSupabase(
     }
   },
 );
+export const apiHandler = withAllowedCors(apiCoreHandler);
 
 let speciesRefreshInFlight: Promise<Response> | null = null;
 
-export const publicSpeciesSessionHandler = withSupabase(
+const publicSpeciesSessionCoreHandler = withSupabase(
   {
     auth: "none",
-    cors: {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "content-type",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
-    },
+    cors: "disabled",
   },
   async (request, ctx) => {
     if (request.method !== "GET" && request.method !== "POST")
@@ -454,4 +466,7 @@ export const publicSpeciesSessionHandler = withSupabase(
     })();
     return speciesRefreshInFlight;
   },
+);
+export const publicSpeciesSessionHandler = withAllowedCors(
+  publicSpeciesSessionCoreHandler,
 );
