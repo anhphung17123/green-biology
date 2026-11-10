@@ -1,0 +1,3 @@
+-- This migration version already exists in the linked production project.
+-- Its original SQL was not present in this checkout. Keep this marker so the
+-- local migration history can advance without altering the remote history.

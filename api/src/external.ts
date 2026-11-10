@@ -14,6 +14,13 @@ async function jsonFetch(url: string, init: RequestInit, message: string) {
   return result as any;
 }
 
+export class SpeciesSessionInvalidError extends Error {
+  constructor() {
+    super("Phiên đăng nhập Species API đã hết hạn");
+    this.name = "SpeciesSessionInvalidError";
+  }
+}
+
 function phpSession(response: Response) {
   const cookies = response.headers.getSetCookie?.() ?? [];
   const combined = cookies.length ? cookies.join(",") : response.headers.get("set-cookie") || "";
@@ -109,19 +116,32 @@ export async function recognize(
     new Blob([bytes], { type: String(body.mimeType) }),
     String(body.filename || "animal.jpg"),
   );
-  const result = await jsonFetch(
+  const endpoint =
     config.SPECIES_API_URL ||
-      "https://trituexanhhocduong.4devvn.com/api/identify-species.php",
-    {
-      method: "POST",
-      headers: {
-        Cookie: `PHPSESSID=${required(config, "SPECIES_API_PHPSESSID")}`,
-        Accept: "application/json",
-      },
-      body: form,
+    "https://trituexanhhocduong.4devvn.com/api/identify-species.php";
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Cookie: `PHPSESSID=${required(config, "SPECIES_API_PHPSESSID")}`,
+      Accept: "application/json",
     },
-    "Species API không thể xử lý ảnh",
-  );
+    body: form,
+  });
+  const result = await response.json().catch(() => ({})) as any;
+  const remoteMessage = String(result?.error?.message || result?.message || "");
+  const redirectedToLogin = response.redirected && /login\.php/i.test(response.url);
+  if (
+    response.status === 401 ||
+    response.status === 403 ||
+    redirectedToLogin ||
+    /(?:session|phpSESSID|unauthori[sz]ed|đăng nhập|login).*(?:hết hạn|invalid|không hợp lệ|required|again)?/i.test(
+      remoteMessage,
+    )
+  ) {
+    throw new SpeciesSessionInvalidError();
+  }
+  if (!response.ok)
+    throw new Error(remoteMessage || "Species API không thể xử lý ảnh");
   if (result?.success !== true || !result.data)
     throw new Error("Species API trả về dữ liệu không hợp lệ");
   return result;

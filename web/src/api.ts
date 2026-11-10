@@ -8,6 +8,7 @@ const RETRYABLE_ACTIONS = new Set([
   "listChallenges",
   "listChallengeProofs",
   "listLeaderboard",
+  "listProtectedAreas",
 ]);
 const EXTERNAL_API_ACTIONS = new Set([
   "chat",
@@ -140,6 +141,46 @@ export type ChallengeProof = {
   reviewedAt?: string;
   reviewedBy?: string;
 };
+export type ProtectedAreaRecord = {
+  id: string;
+  name: string;
+  type: "National Park" | "Nature Reserve";
+  establishedYear: number;
+  googleMapsUrl: string;
+  mobileStreetViewUrl?: string | null;
+  provinces: string[];
+  latitude: number;
+  longitude: number;
+  areaHa: number;
+  description: string;
+  endemicSpecies: string[];
+  endangeredSpecies: string[];
+  images: string[];
+};
+
+export function listProtectedAreas() {
+  return cached("protected-areas", async () => {
+    const result = await apiRequest({ action: "listProtectedAreas" });
+    return result.data as ProtectedAreaRecord[];
+  });
+}
+
+export async function createProtectedArea(payload: Omit<ProtectedAreaRecord, "id">) {
+  const result = await apiRequest({ action: "createProtectedArea", ...payload });
+  invalidate("protected-areas");
+  return result.data as ProtectedAreaRecord;
+}
+
+export async function updateProtectedArea(payload: ProtectedAreaRecord) {
+  const result = await apiRequest({ action: "updateProtectedArea", ...payload });
+  invalidate("protected-areas");
+  return result.data as ProtectedAreaRecord;
+}
+
+export async function deleteProtectedArea(id: string) {
+  await apiRequest({ action: "deleteProtectedArea", id });
+  invalidate("protected-areas");
+}
 
 export async function createPollutionReport(
   payload: Omit<
