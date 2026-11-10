@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { useAuth } from "../auth";
 import LoadingState from "../components/LoadingState";
+import ProtectedAreaManager from "../components/ProtectedAreaManager";
 
 export default function Teacher() {
   const { user } = useAuth();
@@ -78,6 +79,7 @@ export default function Teacher() {
           <span>Báo cáo đã chấp nhận</span>
         </article>
       </div>
+      <ProtectedAreaManager />
       <section className="teacher-review">
         <h2>Tất cả báo cáo vi phạm</h2>
         {reports.length === 0 && (

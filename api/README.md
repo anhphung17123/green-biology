@@ -4,7 +4,7 @@ Backend thay thế Google Apps Script, giữ nguyên action contract của `Code
 
 ## Thiết lập
 
-1. Chạy migration `supabase/migrations/202611060001_google_sheets_schema.sql` bằng Supabase CLI hoặc SQL Editor.
+1. Chạy các migration trong `supabase/migrations/` bằng Supabase CLI hoặc SQL Editor.
 2. Sao chép `.env.example` thành `.env` và điền `SUPABASE_SECRET_KEY` đầy đủ.
 3. Điền các key `RIVER_API_KEY`, `RIVER_BASE_URL`, `SPECIES_API_URL`,
    `SPECIES_API_PHPSESSID`, `IMGBB_API_KEY` trong bảng `Config`.
@@ -25,11 +25,19 @@ Endpoint mặc định là `http://localhost:3000`. Client phải gửi `apikey`
 
 ## API actions
 
-`login`, `register`, `chat`, `recognize`, `uploadEvidenceImage`, `refreshSpeciesSession`, `createReport`, `listReports`, `reviewReport`, `listChallenges`, `createChallenge`, `updateChallenge`, `deleteChallenge`, `submitChallengeProof`, `listChallengeProofs`, `reviewChallengeProof`, `listLeaderboard`.
+`login`, `register`, `chat`, `recognize`, `uploadEvidenceImage`, `refreshSpeciesSession`, `createReport`, `listReports`, `reviewReport`, `listChallenges`, `createChallenge`, `updateChallenge`, `deleteChallenge`, `submitChallengeProof`, `listChallengeProofs`, `reviewChallengeProof`, `listLeaderboard`, `listProtectedAreas`, `createProtectedArea`, `updateProtectedArea`, `deleteProtectedArea`.
+
+`listProtectedAreas` là public để trang khám phá tải marker. Ba action ghi khu bảo tồn
+chỉ chấp nhận user có role `TEACHER`.
 
 `refreshSpeciesSession` chỉ cho role `TEACHER`. Request nhận `speciesUsername` và
 `speciesPassword`, đăng nhập website nhận diện rồi cập nhật
 `Config.SPECIES_API_PHPSESSID`; response không chứa cookie.
+
+Khi `recognize` nhận phản hồi session hết hạn/không hợp lệ từ Species API, backend
+tự đăng nhập lại bằng `SPECIES_LOGIN_USERNAME` và `SPECIES_LOGIN_PASSWORD`, cập
+nhật `Config.SPECIES_API_PHPSESSID`, rồi thử phân loại lại đúng một lần. Các request
+refresh đồng thời trong cùng process dùng chung một lần đăng nhập.
 
 ### Public cron endpoint
 

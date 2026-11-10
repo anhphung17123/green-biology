@@ -11,9 +11,37 @@ import {
   Trees,
   X,
 } from "lucide-react";
-import { protectedAreas, type ProtectedArea } from "../data/protected_area";
+import { protectedAreas as fallbackProtectedAreas, type ProtectedArea } from "../data/protected_area";
 import { googleMapId, loadGoogleMaps } from "../google-maps";
-import { listPollutionReports, type PollutionReport } from "../api";
+import {
+  listPollutionReports,
+  listProtectedAreas,
+  type PollutionReport,
+  type ProtectedAreaRecord,
+} from "../api";
+
+function toProtectedArea(area: ProtectedAreaRecord): ProtectedArea {
+  return {
+    id: area.id,
+    name: area.name,
+    type: area.type,
+    established_year: area.establishedYear,
+    googleMapsUrl: area.googleMapsUrl,
+    mobileStreetViewUrl: area.mobileStreetViewUrl || undefined,
+    location: {
+      provinces: area.provinces,
+      latitude: area.latitude,
+      longitude: area.longitude,
+    },
+    details: {
+      area_ha: area.areaHa,
+      description: area.description,
+      endemic_species: area.endemicSpecies,
+      endangered_species: area.endangeredSpecies,
+    },
+    images: area.images,
+  };
+}
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=900&auto=format&fit=crop";
@@ -33,6 +61,7 @@ function openAreaInGoogleMaps(area: ProtectedArea) {
 }
 
 export default function Explore() {
+  const [protectedAreas, setProtectedAreas] = useState<ProtectedArea[]>(fallbackProtectedAreas);
   const [query, setQuery] = useState("");
   const [mapFilter, setMapFilter] = useState<"reserve" | "report">("reserve");
   const [filterOpen, setFilterOpen] = useState(true);
@@ -49,7 +78,10 @@ export default function Explore() {
   const reportMarkers = useRef<any[]>([]);
 
   useEffect(() => {
-    listPollutionReports().then((items) => setPollutionReports(items.filter((item) => item.status === "APPROVED"))).catch(() => setPollutionReports([]));
+    Promise.all([
+      listPollutionReports().then((items) => setPollutionReports(items.filter((item) => item.status === "APPROVED"))),
+      listProtectedAreas().then((items) => setProtectedAreas(items.map(toProtectedArea))),
+    ]).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -114,7 +146,7 @@ export default function Explore() {
         ...area.details.endemic_species,
       ].some((text) => text.toLocaleLowerCase("vi").includes(value)),
     );
-  }, [query]);
+  }, [protectedAreas, query]);
   const filteredReports = useMemo(() => {
     const value = query.trim().toLocaleLowerCase("vi");
     if (!value) return pollutionReports;

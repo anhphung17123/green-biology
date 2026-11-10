@@ -1,6 +1,12 @@
 import { withSupabase, type SupabaseContext } from "@supabase/server";
 import type { SupabaseClient } from "@supabase/server/peer/supabase-js";
-import { chat, createSpeciesSession, recognize, uploadImage } from "./external.js";
+import {
+  chat,
+  createSpeciesSession,
+  recognize,
+  SpeciesSessionInvalidError,
+  uploadImage,
+} from "./external.js";
 import {
   loadConfig,
   pointsFor,
@@ -49,6 +55,7 @@ const PUBLIC_ACTIONS = new Set([
   "listReports",
   "listChallenges",
   "listLeaderboard",
+  "listProtectedAreas",
 ]);
 
 function ok(data?: unknown) {
@@ -67,6 +74,91 @@ function validateStatus(value: unknown) {
   if (value !== "APPROVED" && value !== "REJECTED")
     throw new Error("Trạng thái duyệt không hợp lệ");
   return value;
+}
+
+function stringList(value: unknown, field: string) {
+  if (!Array.isArray(value)) throw new Error(`${field} không hợp lệ`);
+  return value.map(text).filter(Boolean).slice(0, 100);
+}
+
+function protectedAreaValues(body: Body) {
+  const name = text(body.name);
+  const type = text(body.type);
+  const establishedYear = Number(body.establishedYear);
+  const areaHa = Number(body.areaHa);
+  const latitude = Number(body.latitude);
+  const longitude = Number(body.longitude);
+  if (name.length < 3 || name.length > 160)
+    throw new Error("Tên khu bảo tồn cần từ 3 đến 160 ký tự");
+  if (type !== "National Park" && type !== "Nature Reserve")
+    throw new Error("Loại khu bảo tồn không hợp lệ");
+  if (!Number.isInteger(establishedYear) || establishedYear < 1800 || establishedYear > new Date().getFullYear())
+    throw new Error("Năm thành lập không hợp lệ");
+  if (!Number.isFinite(areaHa) || areaHa <= 0)
+    throw new Error("Diện tích không hợp lệ");
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+      !Number.isFinite(longitude) || longitude < -180 || longitude > 180)
+    throw new Error("Tọa độ không hợp lệ");
+  const description = text(body.description);
+  if (description.length < 20) throw new Error("Mô tả cần ít nhất 20 ký tự");
+  const provinces = stringList(body.provinces, "Tỉnh/thành");
+  if (!provinces.length) throw new Error("Cần ít nhất một tỉnh/thành");
+  return {
+    name,
+    type,
+    establishedYear,
+    googleMapsUrl: validUrl(body.googleMapsUrl),
+    mobileStreetViewUrl: text(body.mobileStreetViewUrl)
+      ? validUrl(body.mobileStreetViewUrl)
+      : null,
+    provinces,
+    latitude,
+    longitude,
+    areaHa,
+    description,
+    endemicSpecies: stringList(body.endemicSpecies, "Loài đặc hữu"),
+    endangeredSpecies: stringList(body.endangeredSpecies, "Loài nguy cấp"),
+    images: stringList(body.images, "Danh sách ảnh").map(validUrl),
+  };
+}
+
+async function listProtectedAreas(ctx: Context) {
+  const { data, error } = await ctx.supabaseAdmin
+    .from("ProtectedAreas")
+    .select("*")
+    .order("name");
+  throwIfError(error);
+  return ok(data ?? []);
+}
+
+let speciesRefreshInFlight: Promise<string> | null = null;
+async function refreshSpeciesSessionInDb(db: SupabaseClient) {
+  if (speciesRefreshInFlight) return speciesRefreshInFlight;
+  speciesRefreshInFlight = (async () => {
+    const session = await createSpeciesSession(
+      runtimeEnv("SPECIES_LOGIN_USERNAME"),
+      runtimeEnv("SPECIES_LOGIN_PASSWORD"),
+    );
+    const { error } = await db
+      .from("Config")
+      .upsert({ key: "SPECIES_API_PHPSESSID", value: session }, { onConflict: "key" });
+    throwIfError(error);
+    return session;
+  })().finally(() => {
+    speciesRefreshInFlight = null;
+  });
+  return speciesRefreshInFlight;
+}
+
+async function recognizeWithSessionRecovery(body: Body, ctx: Context) {
+  const config = await loadConfig(ctx.supabaseAdmin);
+  try {
+    return await recognize(body, config);
+  } catch (error) {
+    if (!(error instanceof SpeciesSessionInvalidError)) throw error;
+    const session = await refreshSpeciesSessionInDb(ctx.supabaseAdmin);
+    return recognize(body, { ...config, SPECIES_API_PHPSESSID: session });
+  }
 }
 async function currentProfile(ctx: Context, teacher = false) {
   if (ctx.authMode !== "user" || !ctx.userClaims)
@@ -268,7 +360,7 @@ async function dispatch(body: Body, ctx: Context) {
   if (action === "chat")
     return ok(await chat(body.question, await loadConfig(ctx.supabaseAdmin)));
   if (action === "recognize")
-    return ok(await recognize(body, await loadConfig(ctx.supabaseAdmin)));
+    return ok(await recognizeWithSessionRecovery(body, ctx));
   if (action === "uploadEvidenceImage") {
     await currentProfile(ctx);
     return ok(await uploadImage(body, await loadConfig(ctx.supabaseAdmin)));
@@ -284,6 +376,37 @@ async function dispatch(body: Body, ctx: Context) {
   }
   if (action === "createReport") return createReport(body, ctx);
   if (action === "listReports") return listReports(ctx);
+  if (action === "listProtectedAreas") return listProtectedAreas(ctx);
+  if (action === "createProtectedArea") {
+    await currentProfile(ctx, true);
+    const { data, error } = await ctx.supabaseAdmin
+      .from("ProtectedAreas")
+      .insert({ id: crypto.randomUUID(), ...protectedAreaValues(body) })
+      .select()
+      .single();
+    throwIfError(error);
+    return ok(data);
+  }
+  if (action === "updateProtectedArea") {
+    await currentProfile(ctx, true);
+    const { data, error } = await ctx.supabaseAdmin
+      .from("ProtectedAreas")
+      .update({ ...protectedAreaValues(body), updatedAt: new Date().toISOString() })
+      .eq("id", body.id)
+      .select()
+      .single();
+    throwIfError(error);
+    return ok(data);
+  }
+  if (action === "deleteProtectedArea") {
+    await currentProfile(ctx, true);
+    const { error } = await ctx.supabaseAdmin
+      .from("ProtectedAreas")
+      .delete()
+      .eq("id", body.id);
+    throwIfError(error);
+    return ok();
+  }
   if (action === "reviewReport") {
     const user = await currentProfile(ctx, true);
     const { error } = await ctx.supabaseAdmin
@@ -421,8 +544,6 @@ const apiCoreHandler = withSupabase(
 );
 export const apiHandler = withAllowedCors(apiCoreHandler);
 
-let speciesRefreshInFlight: Promise<Response> | null = null;
-
 const publicSpeciesSessionCoreHandler = withSupabase(
   {
     auth: "none",
@@ -431,26 +552,13 @@ const publicSpeciesSessionCoreHandler = withSupabase(
   async (request, ctx) => {
     if (request.method !== "GET" && request.method !== "POST")
       return Response.json({ ok: false, message: "Method not allowed" }, { status: 405 });
-    if (speciesRefreshInFlight) return speciesRefreshInFlight;
-
-    speciesRefreshInFlight = (async () => {
-      try {
-        const session = await createSpeciesSession(
-          runtimeEnv("SPECIES_LOGIN_USERNAME"),
-          runtimeEnv("SPECIES_LOGIN_PASSWORD"),
-        );
-        const { error } = await ctx.supabaseAdmin
-          .from("Config")
-          .upsert(
-            { key: "SPECIES_API_PHPSESSID", value: session },
-            { onConflict: "key" },
-          );
-        throwIfError(error);
-        return Response.json({
-          ok: true,
-          data: { updated: true, updatedAt: new Date().toISOString() },
-        });
-      } catch (error) {
+    try {
+      await refreshSpeciesSessionInDb(ctx.supabaseAdmin);
+      return Response.json({
+        ok: true,
+        data: { updated: true, updatedAt: new Date().toISOString() },
+      });
+    } catch (error) {
         console.error("Public Species session refresh failed", error);
         return Response.json(
           {
@@ -462,11 +570,7 @@ const publicSpeciesSessionCoreHandler = withSupabase(
           },
           { status: 502 },
         );
-      } finally {
-        speciesRefreshInFlight = null;
-      }
-    })();
-    return speciesRefreshInFlight;
+    }
   },
 );
 export const publicSpeciesSessionHandler = withAllowedCors(
